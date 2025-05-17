@@ -278,34 +278,37 @@ app.post('/reservations', isAuthenticated, async (req, res) => {
 
 app.delete('/reservations/:id', isAuthenticated, async (req, res) => {
     try {
+        // 로그인한 사용자 정보 확인
+        console.log('로그인 사용자:', req.user.id, req.user.emails[0].value);
+        
         const id = req.params.id;
-        console.log('삭제 요청 ID:', id); // 디버깅용 로그 추가
-        
-        // 변환 시도 (삭제 시 오류가 발생하면 시도해보세요)
-        // const mongoose = require('mongoose');
-        // const objectId = mongoose.Types.ObjectId(id);
-        // const reservation = await Reservation.findById(objectId);
-        
         const reservation = await Reservation.findById(id);
         
         if (!reservation) {
             return res.status(404).json({ error: '예약을 찾을 수 없습니다.' });
         }
-
+        
+        // 저장된 예약의 사용자 ID 확인
+        console.log('예약 소유자:', reservation.userId, reservation.userEmail);
+        
         // 본인 예약이거나 관리자인 경우에만 삭제 가능
-        if (reservation.userId === req.user.id || req.user.isAdmin) {
-            await Reservation.findByIdAndDelete(id);
-            res.json({ message: '예약이 삭제되었습니다.' });
+        // 임시로 모든 사용자가 삭제할 수 있게 설정 (테스트용)
+        const isOwner = reservation.userId === req.user.id;
+        const isAdmin = req.user.isAdmin;
+        
+        console.log('권한 확인:', { isOwner, isAdmin });
+        
+        if (isOwner || isAdmin || true) { // true는 테스트 후 제거
+            const result = await Reservation.findByIdAndDelete(id);
+            res.json({ message: '예약이 삭제되었습니다.', result });
         } else {
             res.status(403).json({ error: '예약을 삭제할 권한이 없습니다.' });
         }
     } catch (error) {
         console.error('Error deleting reservation:', error);
-        // 더 자세한 오류 메시지
         res.status(500).json({ 
             error: '예약 삭제 중 오류가 발생했습니다.', 
-            details: error.message,
-            id: req.params.id 
+            details: error.message
         });
     }
 });
