@@ -173,9 +173,9 @@ app.get('/reservations', isAuthenticated, async (req, res) => {
 
         // FullCalendar 형식으로 변환
         const events = filteredReservations.map(reservation => ({
-            id: reservation.id,
+            id: reservation._id.toString(), // ObjectId를 문자열로 변환
             title: `[${reservation.role === 'teacher' ? '교사' : '학생'}] ${reservation.name} (${reservation.department}) [과학실 ${reservation.lab || '1'}]`,
-            start: reservation.date,
+            start: reservation.dateString || reservation.date, // dateString이 있으면 사용
             extendedProps: {
                 description: `직업: ${reservation.role === 'teacher' ? '교사' : '학생'}\n이름: ${reservation.name}\n소속: ${reservation.department}\n교시: ${reservation.period}교시\n과학실: ${reservation.lab || '1'}`,
                 period: reservation.period,
@@ -278,31 +278,59 @@ app.post('/reservations', isAuthenticated, async (req, res) => {
 
 app.delete('/reservations/:id', isAuthenticated, async (req, res) => {
     try {
-        // 로그인한 사용자 정보 확인
-        console.log('로그인 사용자:', req.user.id, req.user.emails[0].value);
-        
         const id = req.params.id;
-        const reservation = await Reservation.findById(id);
+        console.log('삭제 요청 ID:', id);
         
-        if (!reservation) {
-            return res.status(404).json({ error: '예약을 찾을 수 없습니다.' });
+        // ObjectId 변환
+        let objectId;
+        try {
+            objectId = new mongoose.Types.ObjectId(id);
+        } catch (err) {
+            return res.status(400).json({ 
+                error: '유효하지 않은 ID 형식입니다.', 
+                details: err.message 
+            });
         }
         
-        // 저장된 예약의 사용자 ID 확인
-        console.log('예약 소유자:', reservation.userId, reservation.userEmail);
+        // ID로 예약 찾기
+        const reservation = await Reservation.findById(objectId);
         
-        // 본인 예약이거나 관리자인 경우에만 삭제 가능
-        // 임시로 모든 사용자가 삭제할 수 있게 설정 (테스트용)
+        if (!reservation) {
+            return res.status(404).json({ 
+                error: '예약을 찾을 수 없습니다.',
+                id: id
+            });
+        }
+        
+        // 예약 정보 로그
+        console.log('찾은 예약:', {
+            _id: reservation._id,
+            name: reservation.name,
+            date: reservation.dateString || reservation.date,
+            userId: reservation.userId,
+            currentUser: req.user.id
+        });
+        
+        // 권한 확인
+        const isAdmin = req.user.emails[0].value === '2024257@donghwa.hs.kr';
         const isOwner = reservation.userId === req.user.id;
-        const isAdmin = req.user.isAdmin;
         
         console.log('권한 확인:', { isOwner, isAdmin });
         
-        if (isOwner || isAdmin || true) { // true는 테스트 후 제거
-            const result = await Reservation.findByIdAndDelete(id);
-            res.json({ message: '예약이 삭제되었습니다.', result });
+        if (isOwner || isAdmin) {
+            const result = await Reservation.findByIdAndDelete(objectId);
+            console.log('삭제 결과:', result ? '성공' : '실패');
+            
+            res.json({ 
+                success: true,
+                message: '예약이 삭제되었습니다.'
+            });
         } else {
-            res.status(403).json({ error: '예약을 삭제할 권한이 없습니다.' });
+            res.status(403).json({ 
+                error: '예약을 삭제할 권한이 없습니다.',
+                reservationUserId: reservation.userId,
+                yourUserId: req.user.id
+            });
         }
     } catch (error) {
         console.error('Error deleting reservation:', error);
