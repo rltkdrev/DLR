@@ -160,18 +160,26 @@
             document.getElementById('reservationList').addEventListener('click', async function(e) {
                 if (e.target.classList.contains('delete-reservation')) {
                     const eventId = e.target.dataset.eventId;
+                    console.log('삭제할 이벤트 ID:', eventId); // 디버깅용 로그
+                    
                     if (confirm('예약을 삭제하시겠습니까?')) {
                         try {
                             const response = await fetch(`/reservations/${eventId}`, {
-                                method: 'DELETE'
+                                method: 'DELETE',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                }
                             });
+                            
+                            const responseData = await response.json();
+                            console.log('삭제 응답:', responseData); // 디버깅용 로그
+                            
                             if (response.ok) {
                                 document.getElementById('reservationList').innerHTML = '';
                                 calendar.refetchEvents();
                                 alert('예약이 삭제되었습니다.');
                             } else {
-                                const errorData = await response.json();
-                                alert(errorData.error || '예약 삭제에 실패했습니다.');
+                                alert(responseData.error || '예약 삭제에 실패했습니다.');
                             }
                         } catch (error) {
                             console.error('Error:', error);
