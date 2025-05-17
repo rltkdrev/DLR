@@ -5,6 +5,10 @@ const reservationSchema = new mongoose.Schema({
         type: Date,
         required: true
     },
+    dateString: {
+        type: String,
+        required: true
+    },
     period: {
         type: Number,
         required: true,

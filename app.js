@@ -214,21 +214,34 @@ async function connectToDatabase() {
 
 app.post('/reservations', isAuthenticated, async (req, res) => {
     try {
-        await connectToDatabase(); // 위에서 정의한 함수 사용
+        await connectToDatabase();
         
         const { role, name, department, period, date, lab } = req.body;
         
-        // 날짜 파싱 및 유효성 검사
-        const reservationDate = new Date(date);
+        // 날짜 파싱 및 시간대 문제 해결
+        const dateString = date; // 원본 날짜 문자열 저장
+        
+        // 날짜 문자열로부터 로컬 날짜 생성 (시간대 조정)
+        const dateParts = dateString.split('-');
+        const year = parseInt(dateParts[0]);
+        const month = parseInt(dateParts[1]) - 1; // 0-11로 표현
+        const day = parseInt(dateParts[2]);
+        
+        // 날짜만 지정하고 시간은 정오(12:00)로 설정하여 시간대 이슈 방지
+        const reservationDate = new Date(year, month, day, 12, 0, 0);
+        
         if (isNaN(reservationDate.getTime())) {
             return res.status(400).json({ error: '유효하지 않은 날짜입니다.' });
         }
 
-        // 중복 예약 체크
+        // 중복 예약 체크 - 날짜 비교 방식 변경
+        const startOfDay = new Date(year, month, day, 0, 0, 0);
+        const endOfDay = new Date(year, month, day, 23, 59, 59);
+        
         const existingReservation = await Reservation.findOne({
             date: {
-                $gte: new Date(reservationDate.setHours(0,0,0,0)),
-                $lt: new Date(reservationDate.setHours(23,59,59,999))
+                $gte: startOfDay,
+                $lt: endOfDay
             },
             period: parseInt(period),
             lab: lab
@@ -238,9 +251,10 @@ app.post('/reservations', isAuthenticated, async (req, res) => {
             return res.status(400).json({ error: '해당 날짜와 교시에 선택한 과학실에 이미 예약이 있습니다.' });
         }
 
-        // 새 예약 생성
+        // 새 예약 생성 (날짜 필드에 로컬 날짜 문자열도 저장)
         const newReservation = new Reservation({
             date: reservationDate,
+            dateString: dateString, // 원본 날짜 문자열도 함께 저장
             period: parseInt(period),
             lab: lab || '1',
             role,
