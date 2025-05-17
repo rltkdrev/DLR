@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>예약하기 - 동화고등학교</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
+    <style>
+        .period-box {
+            display: inline-block;
+            width: 100px;
+            height: 100px;
+            margin: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            text-align: center;
+            line-height: 100px;
+            cursor: pointer;
+        }
+        .period-box.available {
+            background-color: #90EE90; /* light green */
+        }
+        .period-box.unavailable {
+            background-color: #CCCCCC; /* gray */
+            cursor: not-allowed;
+        }
+        .period-box.selected {
+            background-color: #32CD32; /* green */
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">동화고등학교</a>
+            <div class="navbar-nav ms-auto">
+                <span class="nav-item nav-link text-light"><%= user.displayName %></span>
+                <a class="nav-item nav-link" href="/logout">로그아웃</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <a href="/calendar" class="btn btn-secondary mb-3">캘린더로 돌아가기</a>
+        <h2>예약하기</h2>
+        <div class="alert alert-info">선택된 날짜: <span id="displayDate"><%= selectedDate %></span></div>
+        <form id="reservationForm">
+            <input type="hidden" id="selectedDate" name="date" value="<%= selectedDate %>">
+            <div class="mb-3">
+                <label class="form-label">직업</label>
+                <select class="form-select" name="role" required>
+                    <option value="teacher">교사</option>
+                    <option value="student">학생</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">이름</label>
+                <input type="text" class="form-control" name="name" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">소속</label>
+                <input type="text" class="form-control" name="department" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">과학실</label>
+                <select class="form-select" name="lab" id="labSelect" required>
+                    <option value="1">과학실 1</option>
+                    <option value="2">과학실 2</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">교시</label>
+                <div id="periodBoxes">
+                    <div class="period-box available" data-period="1">1교시</div>
+                    <div class="period-box available" data-period="2">2교시</div>
+                    <div class="period-box available" data-period="3">3교시</div>
+                    <div class="period-box available" data-period="4">4교시</div>
+                    <div class="period-box available" data-period="5">5교시</div>
+                    <div class="period-box available" data-period="6">6교시</div>
+                    <div class="period-box available" data-period="7">7교시</div>
+                    <div class="period-box available" data-period="8">방과후</div>
+                </div>
+                <input type="hidden" name="period" id="selectedPeriod" required>
+            </div>
+            <button type="submit" class="btn btn-primary">예약하기</button>
+        </form>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            let allEvents = [];
+            
+            // 날짜 표시
+            const selectedDate = '<%= selectedDate %>';
+            document.getElementById('selectedDate').value = selectedDate;
+            document.getElementById('displayDate').textContent = selectedDate;
+
+            function updatePeriodBoxes(dateStr) {
+                fetch('/reservations')
+                    .then(res => res.json())
+                    .then(events => {
+                        console.log('Fetched events:', events);
+                        allEvents = events;
+                        
+                        // Filter events based on selected lab
+                        const selectedLab = document.getElementById('labSelect').value;
+                        const filteredEvents = events.filter(ev => 
+                            new Date(ev.start).toISOString().slice(0,10) === dateStr && 
+                            ev.extendedProps.lab === selectedLab
+                        );
+                        
+                        const reservedPeriods = filteredEvents.map(ev => parseInt(ev.extendedProps.period));
+                        console.log('Reserved periods for lab ' + selectedLab + ':', reservedPeriods);
+                        
+                        const periodBoxes = document.querySelectorAll('.period-box');
+                        periodBoxes.forEach(box => {
+                            const period = parseInt(box.dataset.period);
+                            if (reservedPeriods.includes(period)) {
+                                box.classList.remove('available');
+                                box.classList.remove('selected');
+                                box.classList.add('unavailable');
+                            } else {
+                                box.classList.remove('unavailable');
+                                box.classList.add('available');
+                            }
+                        });
+                    });
+            }
+
+            // Initial update of period boxes
+            updatePeriodBoxes(document.getElementById('selectedDate').value);
+            
+            // Update period boxes when lab selection changes
+            document.getElementById('labSelect').addEventListener('change', function() {
+                document.querySelectorAll('.period-box').forEach(b => b.classList.remove('selected'));
+                document.getElementById('selectedPeriod').value = '';
+                updatePeriodBoxes(document.getElementById('selectedDate').value);
+            });
+
+            document.querySelectorAll('.period-box').forEach(box => {
+                box.addEventListener('click', function() {
+                    if (this.classList.contains('available')) {
+                        document.querySelectorAll('.period-box').forEach(b => b.classList.remove('selected'));
+                        this.classList.add('selected');
+                        document.getElementById('selectedPeriod').value = this.dataset.period;
+                    } else {
+                        alert('이미 예약된 시간입니다.');
+                    }
+                });
+            });
+
+            document.getElementById('reservationForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                // 교시 선택 확인
+                const selectedPeriod = document.getElementById('selectedPeriod').value;
+                if (!selectedPeriod) {
+                    alert('교시를 선택해주세요.');
+                    return;
+                }
+                
+                const formData = new FormData(this);
+                const data = Object.fromEntries(formData.entries());
+                
+                try {
+                    const response = await fetch('/reservations', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    });
+                    
+                    if (response.ok) {
+                        alert('예약이 완료되었습니다.');
+                        window.location.href = '/calendar';
+                    } else {
+                        const errorData = await response.json();
+                        alert(errorData.error || '예약에 실패했습니다.');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('예약 중 오류가 발생했습니다.');
+                }
+            });
+        });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>예약 현황 - 동화고등학교</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.css" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
+    <style>
+        .calendar-container {
+            margin: 20px 0;
+        }
+        .reservation-list {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        /* 모바일 화면 최적화 */
+        @media (max-width: 768px) {
+            .calendar-container {
+                margin: 10px 0;
+            }
+            .fc .fc-toolbar {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .fc .fc-toolbar-title {
+                font-size: 1.2em;
+            }
+            /* 캘린더 모바일에서 더 작게 표시 */
+            #calendar {
+                font-size: 0.85em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">동화고등학교</a>
+            <div class="navbar-nav ms-auto">
+                <span class="nav-item nav-link text-light"><%= user.displayName %></span>
+                <a class="nav-item nav-link" href="/logout">로그아웃</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- 모바일에서 세로로 배치되도록 col-12로 변경 -->
+        <div class="row">
+            <div class="col-lg-8 col-12">
+                <div class="calendar-container">
+                    <div id="calendar"></div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-12">
+                <div class="reservation-list">
+                    <h4>예약 현황</h4>
+                    <input type="hidden" id="selectedDate" value="">
+                    <div id="reservationList"></div>
+                    <a href="#" id="reserveButton" class="btn btn-primary mt-3" style="display: none;">예약</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/locales-all.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            let allEvents = [];
+            const todayStr = new Date().toISOString().slice(0,10);
+            document.getElementById('selectedDate').value = todayStr;
+
+            function showReservationsForDate(dateStr) {
+                const reservationList = document.getElementById('reservationList');
+                reservationList.innerHTML = '';
+                allEvents
+                    .filter(ev => new Date(ev.start).toISOString().slice(0,10) === dateStr)
+                    .sort((a, b) => {
+                        // period: 1~7 are numbers, '방과후' is 8
+                        const getPeriodValue = v => v.extendedProps.period === '방과후' || v.extendedProps.period === 8 ? 8 : parseInt(v.extendedProps.period);
+                        return getPeriodValue(a) - getPeriodValue(b);
+                    })
+                    .forEach(event => {
+                        const reservationItem = document.createElement('div');
+                        reservationItem.className = 'reservation-item mb-2 p-2 border-bottom';
+                        reservationItem.innerHTML = `
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>${event.title}</strong><br>
+                                    <small>${new Date(event.start).toLocaleDateString('ko-KR')} ${event.extendedProps.period}교시</small><br>
+                                    <small>과학실 ${event.extendedProps.lab || '1'}</small>
+                                </div>
+                                <button class="btn btn-sm btn-danger delete-reservation" 
+                                        data-event-id="${event.id}">삭제</button>
+                            </div>
+                        `;
+                        reservationList.appendChild(reservationItem);
+                    });
+            }
+
+            const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+                initialView: 'dayGridMonth',
+                locale: 'ko',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: ''
+                },
+                dayMaxEvents: true,
+                displayEventTime: false,
+                height: window.innerWidth < 768 ? 'auto' : undefined, // 모바일에서는 높이 자동 조정
+                events: function(fetchInfo, successCallback, failureCallback) {
+                    fetch('/reservations')
+                        .then(res => res.json())
+                        .then(events => {
+                            console.log("Fetched events:", events);
+                            allEvents = events;
+                            successCallback(events);
+                            showReservationsForDate(document.getElementById('selectedDate').value);
+                        });
+                },
+                dateClick: function(info) {
+                    document.getElementById('selectedDate').value = info.dateStr;
+                    // 선택된 날짜 표시
+                    const dateDisplay = document.createElement('div');
+                    dateDisplay.className = 'alert alert-info mt-3';
+                    dateDisplay.textContent = `선택된 날짜: ${info.dateStr}`;
+                    const existingDateDisplay = document.querySelector('.alert-info');
+                    if (existingDateDisplay) {
+                        existingDateDisplay.remove();
+                    }
+                    document.querySelector('.reservation-list').insertBefore(
+                        dateDisplay,
+                        document.getElementById('reservationList')
+                    );
+                    showReservationsForDate(info.dateStr);
+                    
+                    // 예약 버튼 표시
+                    document.getElementById('reserveButton').style.display = 'block';
+                    
+                    // 모바일에서 캘린더 선택 후 예약 목록으로 스크롤
+                    if (window.innerWidth < 768) {
+                        document.querySelector('.reservation-list').scrollIntoView({behavior: 'smooth'});
+                    }
+                },
+                eventClick: function(info) {
+                    // 팝업 표시 제거
+                    // 필요하다면 여기서 다른 동작을 추가할 수 있습니다
+                }
+            });
+            calendar.render();
+
+            // 예약 삭제 이벤트 처리
+            document.getElementById('reservationList').addEventListener('click', async function(e) {
+                if (e.target.classList.contains('delete-reservation')) {
+                    const eventId = e.target.dataset.eventId;
+                    if (confirm('예약을 삭제하시겠습니까?')) {
+                        try {
+                            const response = await fetch(`/reservations/${eventId}`, {
+                                method: 'DELETE'
+                            });
+                            if (response.ok) {
+                                document.getElementById('reservationList').innerHTML = '';
+                                calendar.refetchEvents();
+                                alert('예약이 삭제되었습니다.');
+                            } else {
+                                const errorData = await response.json();
+                                alert(errorData.error || '예약 삭제에 실패했습니다.');
+                            }
+                        } catch (error) {
+                            console.error('Error:', error);
+                            alert('예약 삭제 중 오류가 발생했습니다.');
+                        }
+                    }
+                }
+            });
+
+            // 예약 버튼 클릭 이벤트 처리
+            document.getElementById('reserveButton').addEventListener('click', function(e) {
+                e.preventDefault();
+                const selectedDate = document.getElementById('selectedDate').value;
+                if (!selectedDate) {
+                    alert('먼저 날짜를 선택해주세요.');
+                    return;
+                }
+                window.location.href = `/calendar/reservation?date=${selectedDate}`;
+            });
+            
+            // 윈도우 크기 변경 시 캘린더 다시 렌더링
+            window.addEventListener('resize', function() {
+                calendar.updateSize();
+            });
+        });
+    </script>
+</body>
+</html> 
