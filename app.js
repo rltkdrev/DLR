@@ -262,7 +262,10 @@ app.delete('/reservations/:id', isAuthenticated, async (req, res) => {
 // MongoDB 연결
 mongoose.connect(process.env.MONGODB_URI)
     .then(() => console.log('MongoDB 연결 성공'))
-    .catch(err => console.error('MongoDB 연결 실패:', err));
+    .catch(err => {
+        console.error('MongoDB 연결 실패:', err.message);
+        console.error('연결 문자열:', process.env.MONGODB_URI.replace(/mongodb\+srv:\/\/\w+:(.+?)@/, 'mongodb+srv://user:****@'));
+    });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
