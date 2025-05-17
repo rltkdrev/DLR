@@ -191,8 +191,31 @@ app.get('/reservations', isAuthenticated, async (req, res) => {
     }
 });
 
+let cachedDb = null;
+
+async function connectToDatabase() {
+    if (cachedDb) {
+        return cachedDb;
+    }
+    try {
+        const client = await mongoose.connect(process.env.MONGODB_URI, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true,
+            serverSelectionTimeoutMS: 5000 // 타임아웃 시간 설정
+        });
+        cachedDb = client;
+        console.log('MongoDB 연결 성공');
+        return client;
+    } catch (error) {
+        console.error('MongoDB 연결 실패:', error.message);
+        throw error;
+    }
+}
+
 app.post('/reservations', isAuthenticated, async (req, res) => {
     try {
+        await connectToDatabase(); // 위에서 정의한 함수 사용
+        
         const { role, name, department, period, date, lab } = req.body;
         
         // 날짜 파싱 및 유효성 검사
@@ -233,7 +256,8 @@ app.post('/reservations', isAuthenticated, async (req, res) => {
         console.error('Error creating reservation:', error);
         res.status(500).json({ 
             error: '예약 생성 중 오류가 발생했습니다.',
-            details: error.message 
+            details: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 });
@@ -259,13 +283,8 @@ app.delete('/reservations/:id', isAuthenticated, async (req, res) => {
     }
 });
 
-// MongoDB 연결
-mongoose.connect(process.env.MONGODB_URI)
-    .then(() => console.log('MongoDB 연결 성공'))
-    .catch(err => {
-        console.error('MongoDB 연결 실패:', err.message);
-        console.error('연결 문자열:', process.env.MONGODB_URI.replace(/mongodb\+srv:\/\/\w+:(.+?)@/, 'mongodb+srv://user:****@'));
-    });
+// 서버 시작 시 먼저 연결
+connectToDatabase().catch(console.error);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

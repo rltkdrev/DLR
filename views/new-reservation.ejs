@@ -154,6 +154,12 @@
             document.getElementById('reservationForm').addEventListener('submit', async function(e) {
                 e.preventDefault();
                 
+                // 로딩 표시 추가
+                const submitButton = this.querySelector('button[type="submit"]');
+                const originalText = submitButton.textContent;
+                submitButton.disabled = true;
+                submitButton.textContent = '예약 중...';
+                
                 // 교시 선택 확인
                 const selectedPeriod = document.getElementById('selectedPeriod').value;
                 if (!selectedPeriod) {
@@ -179,10 +185,15 @@
                     } else {
                         const errorData = await response.json();
                         alert(errorData.error || '예약에 실패했습니다.');
+                        console.error('예약 오류 세부정보:', errorData.details || '세부정보 없음');
                     }
                 } catch (error) {
                     console.error('Error:', error);
-                    alert('예약 중 오류가 발생했습니다.');
+                    alert('예약 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요.');
+                } finally {
+                    // 버튼 상태 복원
+                    submitButton.disabled = false;
+                    submitButton.textContent = originalText;
                 }
             });
         });
