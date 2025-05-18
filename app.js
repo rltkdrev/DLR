@@ -313,15 +313,20 @@ app.delete('/reservations/:id', isAuthenticated, async (req, res) => {
         
         // 권한 확인
         // 관리자 이메일 확인
-        const isAdmin = req.user.emails[0].value === '2024257@donghwa.hs.kr';
-        // userId 문자열로 변환하여 비교 (타입 일치 보장)
-        const isOwner = String(reservation.userId) === String(req.user.id);
+        const isAdmin = req.user.emails && req.user.emails[0] && req.user.emails[0].value === '2024257@donghwa.hs.kr';
+        
+        // Google OAuth ID와 저장된 userId를 정규화하여 비교
+        const normalizedReservationUserId = String(reservation.userId).replace(/^"(.*)"$/, '$1');
+        const normalizedCurrentUserId = String(req.user.id).replace(/^"(.*)"$/, '$1');
+        const isOwner = normalizedReservationUserId === normalizedCurrentUserId;
         
         console.log('권한 확인:', { 
             isOwner, 
             isAdmin,
-            reservationUserId: String(reservation.userId),
-            currentUserId: String(req.user.id)
+            normalizedReservationUserId,
+            normalizedCurrentUserId,
+            rawReservationUserId: String(reservation.userId),
+            rawCurrentUserId: String(req.user.id)
         });
         
         if (isOwner || isAdmin) {
@@ -335,8 +340,8 @@ app.delete('/reservations/:id', isAuthenticated, async (req, res) => {
         } else {
             res.status(403).json({ 
                 error: '예약을 삭제할 권한이 없습니다.',
-                reservationUserId: String(reservation.userId),
-                yourUserId: String(req.user.id)
+                reservationUserId: normalizedReservationUserId,
+                yourUserId: normalizedCurrentUserId
             });
         }
     } catch (error) {
