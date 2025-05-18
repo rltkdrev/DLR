@@ -98,7 +98,7 @@ async (accessToken, refreshToken, profile, done) => {
         return done(null, false, { message: '동화고등학교 계정만 사용 가능합니다.' });
     }
     // 관리자 권한 설정
-    profile.isAdmin = profile.emails[0].value === '2024256@donghwa.hs.kr';
+    profile.isAdmin = profile.emails[0].value === '2024257@donghwa.hs.kr';
     return done(null, profile);
 }));
 
@@ -313,7 +313,7 @@ app.delete('/reservations/:id', isAuthenticated, async (req, res) => {
         
         // 권한 확인
         // 관리자 이메일 확인
-        const isAdmin = req.user.emails[0].value === '2024256@donghwa.hs.kr';
+        const isAdmin = req.user.emails[0].value === '2024257@donghwa.hs.kr';
         // userId 문자열로 변환하여 비교 (타입 일치 보장)
         const isOwner = String(reservation.userId) === String(req.user.id);
         
