@@ -35,6 +35,16 @@
                 font-size: 0.85em;
             }
         }
+        
+        /* 과학실별 색상 설정 */
+        .lab-1-event {
+            background-color: #3788d8; /* 기본 파란색 - 과학실 1 */
+            border-color: #2c6db2;
+        }
+        .lab-2-event {
+            background-color: #28a745; /* 초록색 - 과학실 2 */
+            border-color: #1e7e34;
+        }
     </style>
 </head>
 <body>
@@ -54,6 +64,16 @@
             <div class="col-lg-8 col-12">
                 <div class="calendar-container">
                     <div id="calendar"></div>
+                    <div class="calendar-legend mt-2 d-flex justify-content-center">
+                        <div class="me-4">
+                            <span class="legend-color lab-1-event d-inline-block" style="width: 15px; height: 15px;"></span>
+                            <span class="ms-1">과학실 1</span>
+                        </div>
+                        <div>
+                            <span class="legend-color lab-2-event d-inline-block" style="width: 15px; height: 15px;"></span>
+                            <span class="ms-1">과학실 2</span>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="col-lg-4 col-12">
@@ -89,10 +109,14 @@
                     .forEach(event => {
                         const reservationItem = document.createElement('div');
                         reservationItem.className = 'reservation-item mb-2 p-2 border-bottom';
+                        const labClass = event.extendedProps.lab === '1' ? 'lab-1-event' : 'lab-2-event';
                         reservationItem.innerHTML = `
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
-                                    <strong>${event.title}</strong><br>
+                                    <div class="d-flex align-items-center">
+                                        <span class="legend-color ${labClass} d-inline-block me-2" style="width: 10px; height: 10px;"></span>
+                                        <strong>${event.title}</strong>
+                                    </div>
                                     <small>${new Date(event.start).toLocaleDateString('ko-KR')} ${event.extendedProps.period}교시</small><br>
                                     <small>과학실 ${event.extendedProps.lab || '1'}</small>
                                 </div>
@@ -123,6 +147,14 @@
                         .then(res => res.json())
                         .then(events => {
                             console.log("Fetched events:", events);
+                            // 과학실에 따라 이벤트 색상 설정
+                            events.forEach(event => {
+                                if (event.extendedProps.lab === '1') {
+                                    event.className = 'lab-1-event';
+                                } else if (event.extendedProps.lab === '2') {
+                                    event.className = 'lab-2-event';
+                                }
+                            });
                             allEvents = events;
                             successCallback(events);
                             
