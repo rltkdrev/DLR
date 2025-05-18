@@ -95,10 +95,15 @@
             let allEvents = [];
             const todayStr = new Date().toISOString().slice(0,10);
             document.getElementById('selectedDate').value = todayStr;
+            
+            console.log('캘린더 초기화 시작...');
 
             function showReservationsForDate(dateStr) {
                 const reservationList = document.getElementById('reservationList');
                 reservationList.innerHTML = '';
+                console.log('선택된 날짜의 이벤트 표시:', dateStr, '이벤트 수:', 
+                            allEvents.filter(ev => new Date(ev.start).toISOString().slice(0,10) === dateStr).length);
+                
                 allEvents
                     .filter(ev => new Date(ev.start).toISOString().slice(0,10) === dateStr)
                     .sort((a, b) => {
@@ -143,38 +148,70 @@
                 displayEventTime: false,
                 height: window.innerWidth < 768 ? 'auto' : undefined, // 모바일에서는 높이 자동 조정
                 events: function(fetchInfo, successCallback, failureCallback) {
+                    console.log('이벤트 데이터 가져오기 시작...');
+                    
+                    // 5초 후에도 응답이 없으면 실패 처리
+                    const timeoutId = setTimeout(() => {
+                        console.error('이벤트 가져오기 타임아웃 발생');
+                        failureCallback(new Error('데이터 로딩 타임아웃'));
+                        alert('예약 데이터를 가져오는데 시간이 너무 오래 걸립니다. 페이지를 새로고침 해주세요.');
+                    }, 5000);
+                    
                     fetch('/reservations')
-                        .then(res => res.json())
-                        .then(events => {
-                            console.log("Fetched events:", events);
-                            // 과학실에 따라 이벤트 색상 설정
-                            events.forEach(event => {
-                                if (event.extendedProps.lab === '1') {
-                                    event.className = 'lab-1-event';
-                                } else if (event.extendedProps.lab === '2') {
-                                    event.className = 'lab-2-event';
-                                }
-                            });
-                            allEvents = events;
-                            successCallback(events);
-                            
-                            // 초기 로딩 시 오늘 날짜의 예약 정보를 표시
-                            showReservationsForDate(todayStr);
-                            
-                            // 오늘 날짜 표시
-                            const dateDisplay = document.createElement('div');
-                            dateDisplay.className = 'alert alert-info mt-3';
-                            dateDisplay.textContent = `선택된 날짜: ${todayStr}`;
-                            const existingDateDisplay = document.querySelector('.alert-info');
-                            if (existingDateDisplay) {
-                                existingDateDisplay.remove();
+                        .then(res => {
+                            clearTimeout(timeoutId);
+                            console.log('API 응답 상태:', res.status);
+                            if (!res.ok) {
+                                throw new Error(`API 오류: ${res.status}`);
                             }
-                            document.querySelector('.reservation-list').insertBefore(
-                                dateDisplay,
-                                document.getElementById('reservationList')
-                            );
+                            return res.json();
+                        })
+                        .then(events => {
+                            console.log("가져온 이벤트:", events.length ? events.length + "개" : "없음", events);
+                            
+                            // 빈 배열 처리
+                            if (!Array.isArray(events) || events.length === 0) {
+                                console.log('이벤트가 없거나 배열이 아닙니다');
+                                successCallback([]);
+                                allEvents = [];
+                                showReservationsForDate(todayStr);
+                                return;
+                            }
+                            
+                            try {
+                                // 과학실에 따라 이벤트 색상 설정
+                                events.forEach(event => {
+                                    if (event.extendedProps && event.extendedProps.lab === '1') {
+                                        event.className = 'lab-1-event';
+                                    } else if (event.extendedProps && event.extendedProps.lab === '2') {
+                                        event.className = 'lab-2-event';
+                                    }
+                                });
+                                allEvents = events;
+                                successCallback(events);
+                                
+                                // 초기 로딩 시 오늘 날짜의 예약 정보를 표시
+                                showReservationsForDate(todayStr);
+                                
+                                // 오늘 날짜 표시
+                                const dateDisplay = document.createElement('div');
+                                dateDisplay.className = 'alert alert-info mt-3';
+                                dateDisplay.textContent = `선택된 날짜: ${todayStr}`;
+                                const existingDateDisplay = document.querySelector('.alert-info');
+                                if (existingDateDisplay) {
+                                    existingDateDisplay.remove();
+                                }
+                                document.querySelector('.reservation-list').insertBefore(
+                                    dateDisplay,
+                                    document.getElementById('reservationList')
+                                );
+                            } catch (error) {
+                                console.error('이벤트 처리 중 오류:', error);
+                                failureCallback(error);
+                            }
                         })
                         .catch(error => {
+                            clearTimeout(timeoutId);
                             console.error("Error fetching events:", error);
                             failureCallback(error);
                             // 에러 발생 시 사용자에게 알림
@@ -208,6 +245,12 @@
                 }
             });
             calendar.render();
+            
+            // 캘린더 렌더링 후 약간의 지연을 두고 이벤트 다시 가져오기
+            setTimeout(() => {
+                console.log('캘린더 초기 로드 후 이벤트 다시 가져오기');
+                calendar.refetchEvents();
+            }, 1000);
 
             // 예약 삭제 이벤트 처리
             document.getElementById('reservationList').addEventListener('click', async function(e) {
@@ -256,6 +299,20 @@
             // 윈도우 크기 변경 시 캘린더 다시 렌더링
             window.addEventListener('resize', function() {
                 calendar.updateSize();
+            });
+            
+            // 페이지가 완전히 로드된 후에도 이벤트 다시 가져오기
+            window.addEventListener('load', function() {
+                console.log('페이지 완전 로드 후 이벤트 다시 가져오기');
+                calendar.refetchEvents();
+            });
+            
+            // 페이지가 다시 활성화(포커스)될 때도 이벤트 다시 가져오기
+            document.addEventListener('visibilitychange', function() {
+                if (!document.hidden) {
+                    console.log('페이지 다시 활성화, 이벤트 새로 가져오기');
+                    calendar.refetchEvents();
+                }
             });
         });
     </script>
