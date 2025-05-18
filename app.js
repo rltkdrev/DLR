@@ -98,7 +98,7 @@ async (accessToken, refreshToken, profile, done) => {
         return done(null, false, { message: '동화고등학교 계정만 사용 가능합니다.' });
     }
     // 관리자 권한 설정
-    profile.isAdmin = profile.emails[0].value === '2024257@donghwa.hs.kr';
+    profile.isAdmin = profile.emails[0].value === '2024256@donghwa.hs.kr';
     return done(null, profile);
 }));
 
@@ -312,10 +312,17 @@ app.delete('/reservations/:id', isAuthenticated, async (req, res) => {
         });
         
         // 권한 확인
-        const isAdmin = req.user.emails[0].value === '2024257@donghwa.hs.kr';
-        const isOwner = reservation.userId === req.user.id;
+        // 관리자 이메일 확인
+        const isAdmin = req.user.emails[0].value === '2024256@donghwa.hs.kr';
+        // userId 문자열로 변환하여 비교 (타입 일치 보장)
+        const isOwner = String(reservation.userId) === String(req.user.id);
         
-        console.log('권한 확인:', { isOwner, isAdmin });
+        console.log('권한 확인:', { 
+            isOwner, 
+            isAdmin,
+            reservationUserId: String(reservation.userId),
+            currentUserId: String(req.user.id)
+        });
         
         if (isOwner || isAdmin) {
             const result = await Reservation.findByIdAndDelete(objectId);
@@ -328,8 +335,8 @@ app.delete('/reservations/:id', isAuthenticated, async (req, res) => {
         } else {
             res.status(403).json({ 
                 error: '예약을 삭제할 권한이 없습니다.',
-                reservationUserId: reservation.userId,
-                yourUserId: req.user.id
+                reservationUserId: String(reservation.userId),
+                yourUserId: String(req.user.id)
             });
         }
     } catch (error) {
