@@ -34,30 +34,39 @@
             font-weight: bold !important;
         }
         
+        /* 캘린더 셀 높이 설정 */
+        .fc .fc-daygrid-day-frame {
+            min-height: 80px;
+        }
+        
         /* 날짜 셀 이벤트 카운트 스타일 */
         .date-event-count {
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
             padding: 0;
-            font-size: 0.75em;
+            font-size: 1em;
             text-align: center;
             width: 100%;
-            margin-top: 2px;
-            line-height: 1.1;
+            margin: 0;
+            line-height: 1.2;
+            height: 100%;
         }
         .count-badge {
             font-weight: bold;
-            margin-bottom: 1px;
+            margin-bottom: 3px;
             color: #333;
+            font-size: 1.1em;
         }
         .lab-count {
-            font-size: 0.75em;
-            margin-bottom: 1px;
-            padding: 0px 2px;
-            border-radius: 2px;
+            font-size: 0.9em;
+            margin-bottom: 2px;
+            padding: 2px 5px;
+            border-radius: 3px;
             color: white;
             line-height: 1.2;
+            font-weight: bold;
         }
         .lab-1-count {
             background-color: #3788d8;
@@ -92,6 +101,15 @@
         .lab-2-event {
             background-color: #28a745; /* 초록색 - 과학실 2 */
             border-color: #1e7e34;
+        }
+        
+        /* 이벤트 컨테이너 스타일 */
+        .event-count-container {
+            position: relative;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
     </style>
 </head>
@@ -306,10 +324,30 @@
                                             if (counts.lab2 > 0) {
                                                 countEl.innerHTML += `<div class="lab-count lab-2-count">과학실2: ${counts.lab2}건</div>`;
                                             }
+                                            
                                             // 날짜 셀 내의 적절한 컨테이너에 추가
                                             const cellContent = dateEl.querySelector('.fc-daygrid-day-frame');
                                             if (cellContent) {
-                                                cellContent.appendChild(countEl);
+                                                // 날짜 표시 요소 가져오기
+                                                const dateTop = cellContent.querySelector('.fc-daygrid-day-top');
+                                                
+                                                // 이벤트 컨테이너를 추가
+                                                const eventContainer = document.createElement('div');
+                                                eventContainer.className = 'event-count-container';
+                                                eventContainer.style.position = 'relative';
+                                                eventContainer.style.height = '70%';
+                                                eventContainer.style.width = '100%';
+                                                eventContainer.style.display = 'flex';
+                                                eventContainer.style.alignItems = 'center';
+                                                eventContainer.style.justifyContent = 'center';
+                                                eventContainer.appendChild(countEl);
+                                                
+                                                // 날짜 표시 다음에 추가
+                                                if (dateTop && dateTop.nextSibling) {
+                                                    cellContent.insertBefore(eventContainer, dateTop.nextSibling);
+                                                } else {
+                                                    cellContent.appendChild(eventContainer);
+                                                }
                                             }
                                         }
                                     });
