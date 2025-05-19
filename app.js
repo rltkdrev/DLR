@@ -178,12 +178,25 @@ app.get('/logout', (req, res) => {
 });
 
 // 교사 로그인 라우트
-app.post('/auth/teacher', passport.authenticate('local', {
-    failureRedirect: '/?error=login',
-    failureMessage: true
-}), (req, res) => {
-    console.log('교사 로그인 성공:', req.user);  // 디버깅용 로그
-    res.redirect('/calendar');
+app.post('/auth/teacher', express.json(), (req, res, next) => {
+    const { password } = req.body;
+    
+    if (password === 'donghwascience') {
+        req.user = {
+            id: 'teacher',
+            displayName: '교사',
+            isTeacher: true,
+            emails: [{ value: 'teacher@donghwa.hs.kr' }]
+        };
+        req.login(req.user, (err) => {
+            if (err) {
+                return next(err);
+            }
+            res.json({ success: true });
+        });
+    } else {
+        res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+    }
 });
 
 // 교사 계정 등록 라우트 (관리자만 접근 가능)

@@ -173,21 +173,23 @@
                     center: 'title',
                     right: ''
                 },
-                dayMaxEvents: true,
+                dayMaxEvents: 3, // 하루에 최대 3개의 이벤트만 표시
                 displayEventTime: false,
-                height: window.innerWidth < 768 ? 'auto' : undefined, // 모바일에서는 높이 자동 조정
+                height: window.innerWidth < 768 ? 'auto' : undefined,
                 moreLinkContent: function(args) {
                     return '+ ' + args.num + '개 더보기';
                 },
                 eventContent: function(arg) {
                     // 모바일에서 이벤트 내용 간소화
                     if (window.innerWidth < 768) {
+                        const title = arg.event.title.split('[')[0];
+                        const lab = arg.event.title.includes('과학실') ? ' [' + arg.event.title.split('[').pop() : '';
                         return {
                             html: `
                                 <div class="fc-event-main-frame">
                                     <div class="fc-event-title-container">
                                         <div class="fc-event-title fc-sticky">
-                                            ${arg.event.title.split('[')[0]}${arg.event.title.includes('과학실') ? ' [' + arg.event.title.split('[').pop() : ''}
+                                            ${title}${lab}
                                         </div>
                                     </div>
                                 </div>

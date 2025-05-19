@@ -97,9 +97,12 @@
                     <img src="https://www.google.com/favicon.ico" alt="Google" style="width: 20px; margin-right: 10px;">
                     구글로 로그인
                 </a>
-                <a href="#" class="btn btn-secondary" data-bs-toggle="tab" data-bs-target="#teacher">
-                    교사용 로그인
-                </a>
+                <div class="teacher-login-box">
+                    <input type="password" id="teacherPassword" class="form-control mb-2" placeholder="교사용 비밀번호">
+                    <a href="#" class="btn btn-secondary" onclick="handleTeacherLogin(event)">
+                        교사용 로그인
+                    </a>
+                </div>
                 <p>동화고등학교 계정으로 로그인하세요.</p>
             </div>
             
@@ -164,6 +167,30 @@
             setTimeout(() => {
                 alert('동화고등학교 계정(@donghwa.hs.kr)만 로그인 가능합니다.');
             }, 500);
+        }
+
+        function handleTeacherLogin(event) {
+            event.preventDefault();
+            const password = document.getElementById('teacherPassword').value;
+            
+            fetch('/auth/teacher', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ password: password })
+            })
+            .then(response => {
+                if (response.ok) {
+                    window.location.href = '/calendar';
+                } else {
+                    alert('비밀번호가 일치하지 않습니다.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('로그인 중 오류가 발생했습니다.');
+            });
         }
     </script>
 </body>
