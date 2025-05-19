@@ -116,7 +116,8 @@ passport.use(new LocalStrategy(
                 return done(null, {
                     id: 'teacher',
                     displayName: '교사',
-                    isTeacher: true
+                    isTeacher: true,
+                    emails: [{ value: 'teacher@donghwa.hs.kr' }]  // 이메일 정보 추가
                 });
             }
             
@@ -181,6 +182,7 @@ app.post('/auth/teacher', passport.authenticate('local', {
     failureRedirect: '/?error=login',
     failureMessage: true
 }), (req, res) => {
+    console.log('교사 로그인 성공:', req.user);  // 디버깅용 로그
     res.redirect('/calendar');
 });
 
@@ -227,7 +229,12 @@ app.post('/auth/register-teacher', isAuthenticated, async (req, res) => {
 // 예약 관련 라우트
 app.get('/reservations', isAuthenticated, async (req, res) => {
     try {
-        const reservations = await readReservations();
+        console.log('예약 데이터 요청 받음');
+        await connectToDatabase();
+        
+        const reservations = await Reservation.find().lean();
+        console.log('조회된 예약 수:', reservations.length);
+
         const timeMin = new Date();
         const timeMax = new Date();
         timeMax.setMonth(timeMax.getMonth() + 1);
@@ -244,11 +251,13 @@ app.get('/reservations', isAuthenticated, async (req, res) => {
             return dateA - dateB;
         });
 
+        console.log('필터링된 예약 수:', filteredReservations.length);
+
         // FullCalendar 형식으로 변환
         const events = filteredReservations.map(reservation => ({
-            id: reservation._id.toString(), // ObjectId를 문자열로 변환
+            id: reservation._id.toString(),
             title: `[${reservation.role === 'teacher' ? '교사' : '학생'}] ${reservation.name} (${reservation.department}) [과학실 ${reservation.lab || '1'}]`,
-            start: reservation.dateString || reservation.date, // dateString이 있으면 사용
+            start: reservation.dateString || reservation.date,
             extendedProps: {
                 description: `직업: ${reservation.role === 'teacher' ? '교사' : '학생'}\n이름: ${reservation.name}\n소속: ${reservation.department}\n교시: ${reservation.period}교시\n과학실: ${reservation.lab || '1'}`,
                 period: reservation.period,
@@ -257,6 +266,7 @@ app.get('/reservations', isAuthenticated, async (req, res) => {
             }
         }));
 
+        console.log('변환된 이벤트 수:', events.length);
         res.json(events);
     } catch (error) {
         console.error('Error fetching reservations:', error);
@@ -287,27 +297,25 @@ async function connectToDatabase() {
 
 app.post('/reservations', isAuthenticated, async (req, res) => {
     try {
+        console.log('새 예약 생성 요청:', req.body);
         await connectToDatabase();
         
         const { role, name, department, period, date, lab } = req.body;
         
         // 날짜 파싱 및 시간대 문제 해결
-        const dateString = date; // 원본 날짜 문자열 저장
-        
-        // 날짜 문자열로부터 로컬 날짜 생성 (시간대 조정)
+        const dateString = date;
         const dateParts = dateString.split('-');
         const year = parseInt(dateParts[0]);
-        const month = parseInt(dateParts[1]) - 1; // 0-11로 표현
+        const month = parseInt(dateParts[1]) - 1;
         const day = parseInt(dateParts[2]);
         
-        // 날짜만 지정하고 시간은 정오(12:00)로 설정하여 시간대 이슈 방지
         const reservationDate = new Date(year, month, day, 12, 0, 0);
         
         if (isNaN(reservationDate.getTime())) {
             return res.status(400).json({ error: '유효하지 않은 날짜입니다.' });
         }
 
-        // 중복 예약 체크 - 날짜 비교 방식 변경
+        // 중복 예약 체크
         const startOfDay = new Date(year, month, day, 0, 0, 0);
         const endOfDay = new Date(year, month, day, 23, 59, 59);
         
@@ -324,10 +332,10 @@ app.post('/reservations', isAuthenticated, async (req, res) => {
             return res.status(400).json({ error: '해당 날짜와 교시에 선택한 과학실에 이미 예약이 있습니다.' });
         }
 
-        // 새 예약 생성 (날짜 필드에 로컬 날짜 문자열도 저장)
+        // 새 예약 생성
         const newReservation = new Reservation({
             date: reservationDate,
-            dateString: dateString, // 원본 날짜 문자열도 함께 저장
+            dateString: dateString,
             period: parseInt(period),
             lab: lab || '1',
             role,
@@ -337,14 +345,16 @@ app.post('/reservations', isAuthenticated, async (req, res) => {
             userEmail: req.user.emails[0].value
         });
 
+        console.log('저장할 예약 정보:', newReservation);
         const savedReservation = await newReservation.save();
+        console.log('예약 저장 성공:', savedReservation);
+        
         res.json(savedReservation);
     } catch (error) {
         console.error('Error creating reservation:', error);
         res.status(500).json({ 
             error: '예약 생성 중 오류가 발생했습니다.',
-            details: error.message,
-            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            details: error.message
         });
     }
 });
