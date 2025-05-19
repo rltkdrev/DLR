@@ -41,12 +41,9 @@
             align-items: center;
             padding: 2px;
             font-size: 0.8em;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
             text-align: center;
-            width: 90%;
+            width: 100%;
+            margin-top: 15px;
         }
         .count-badge {
             font-weight: bold;
@@ -304,7 +301,7 @@
                                 setTimeout(() => {
                                     Object.keys(eventCountByDate).forEach(date => {
                                         const counts = eventCountByDate[date];
-                                        const dateEl = document.querySelector(`.fc-day[data-date="${date}"]`);
+                                        const dateEl = document.querySelector(`.fc-daygrid-day[data-date="${date}"]`);
                                         if (dateEl) {
                                             const countEl = document.createElement('div');
                                             countEl.className = 'date-event-count';
@@ -315,7 +312,11 @@
                                             if (counts.lab2 > 0) {
                                                 countEl.innerHTML += `<div class="lab-count lab-2-count">과학실2: ${counts.lab2}건</div>`;
                                             }
-                                            dateEl.appendChild(countEl);
+                                            // 날짜 셀 내의 적절한 컨테이너에 추가
+                                            const cellContent = dateEl.querySelector('.fc-daygrid-day-frame');
+                                            if (cellContent) {
+                                                cellContent.appendChild(countEl);
+                                            }
                                         }
                                     });
                                 }, 100);
