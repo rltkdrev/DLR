@@ -36,7 +36,7 @@
         
         /* 캘린더 셀 높이 설정 */
         .fc .fc-daygrid-day-frame {
-            min-height: 80px;
+            min-height: 70px;
         }
         
         /* 날짜 셀 이벤트 카운트 스타일 */
@@ -46,7 +46,7 @@
             align-items: center;
             justify-content: center;
             padding: 0;
-            font-size: 1em;
+            font-size: 0.85em;
             text-align: center;
             width: 100%;
             margin: 0;
@@ -55,17 +55,17 @@
         }
         .count-badge {
             font-weight: bold;
-            margin-bottom: 3px;
+            margin-bottom: 2px;
             color: #333;
-            font-size: 1.1em;
+            font-size: 1em;
         }
         .lab-count {
-            font-size: 0.9em;
-            margin-bottom: 2px;
-            padding: 2px 5px;
-            border-radius: 3px;
+            font-size: 0.8em;
+            margin-bottom: 1px;
+            padding: 1px 3px;
+            border-radius: 2px;
             color: white;
-            line-height: 1.2;
+            line-height: 1.1;
             font-weight: bold;
         }
         .lab-1-count {
@@ -204,12 +204,13 @@
                         const reservationItem = document.createElement('div');
                         reservationItem.className = 'reservation-item mb-2 p-2 border-bottom';
                         const labClass = event.extendedProps.lab === '1' ? 'lab-1-event' : 'lab-2-event';
+                        const role = event.extendedProps.role === 'teacher' ? '교사' : '학생';
                         reservationItem.innerHTML = `
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
                                     <div class="d-flex align-items-center">
                                         <span class="legend-color ${labClass} d-inline-block me-2" style="width: 10px; height: 10px;"></span>
-                                        <strong>${event.title}</strong>
+                                        <strong>[${role}] ${event.title.split(' ')[2]}(${event.extendedProps.department})</strong>
                                     </div>
                                     <small>${new Date(event.start).toLocaleDateString('ko-KR')} ${event.extendedProps.period}교시</small><br>
                                     <small>과학실 ${event.extendedProps.lab || '1'}</small>
