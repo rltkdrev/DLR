@@ -304,7 +304,7 @@
             }, 1000);
 
             // 예약 삭제 이벤트 처리
-            document.getElementById('reservationList').addEventListener('click', async function(e) {
+            document.addEventListener('click', async function(e) {
                 if (e.target.classList.contains('delete-reservation')) {
                     const eventId = e.target.dataset.eventId;
                     console.log('삭제할 이벤트 ID:', eventId); // 디버깅용 로그
@@ -322,8 +322,10 @@
                             console.log('삭제 응답:', responseData); // 디버깅용 로그
                             
                             if (response.ok) {
-                                document.getElementById('reservationList').innerHTML = '';
                                 calendar.refetchEvents();
+                                // 현재 선택된 날짜를 다시 가져와 예약 목록 갱신
+                                const selectedDate = document.getElementById('selectedDate').value;
+                                showReservationsForDate(selectedDate);
                                 alert('예약이 삭제되었습니다.');
                             } else {
                                 alert(responseData.error || '예약 삭제에 실패했습니다.');

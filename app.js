@@ -117,7 +117,8 @@ passport.use(new LocalStrategy(
                     id: 'teacher',
                     displayName: '교사',
                     isTeacher: true,
-                    emails: [{ value: 'teacher@donghwa.hs.kr' }]  // 이메일 정보 추가
+                    isAdmin: true,  // 관리자 권한 부여
+                    emails: [{ value: 'dGVhY2hlcg==@donghwa.hs.kr' }]
                 });
             }
             
@@ -186,12 +187,14 @@ app.post('/auth/teacher', express.json(), (req, res, next) => {
             id: 'teacher',
             displayName: '교사',
             isTeacher: true,
-            emails: [{ value: 'teacher@donghwa.hs.kr' }]
+            isAdmin: true,  // 관리자 권한 부여
+            emails: [{ value: 'dGVhY2hlcg==@donghwa.hs.kr' }]
         };
         req.login(req.user, (err) => {
             if (err) {
                 return next(err);
             }
+            console.log('교사 로그인 성공:', req.user);
             res.json({ success: true });
         });
     } else {
@@ -355,12 +358,12 @@ app.post('/reservations', isAuthenticated, async (req, res) => {
             name,
             department,
             userId: req.user.id,
-            userEmail: req.user.emails[0].value
+            userEmail: req.user.emails && req.user.emails[0] ? req.user.emails[0].value : 'unknown@donghwa.hs.kr'
         });
 
-        console.log('저장할 예약 정보:', newReservation);
+        console.log('저장할 예약 정보:', JSON.stringify(newReservation));
         const savedReservation = await newReservation.save();
-        console.log('예약 저장 성공:', savedReservation);
+        console.log('예약 저장 성공:', JSON.stringify(savedReservation));
         
         res.json(savedReservation);
     } catch (error) {
@@ -399,33 +402,24 @@ app.delete('/reservations/:id', isAuthenticated, async (req, res) => {
         }
         
         // 예약 정보 로그
-        console.log('찾은 예약:', {
-            _id: reservation._id,
-            name: reservation.name,
-            date: reservation.dateString || reservation.date,
-            userId: reservation.userId,
-            currentUser: req.user.id
-        });
+        console.log('찾은 예약:', JSON.stringify(reservation));
         
-        // 권한 확인
-        // 관리자 이메일 확인
+        // 교사 계정에게 관리자 권한 부여
+        const isTeacher = req.user.isTeacher === true;
+        
+        // 권한 확인 (관리자 또는 교사 또는 본인 예약)
         const isAdmin = req.user.emails && req.user.emails[0] && req.user.emails[0].value === '2024257@donghwa.hs.kr';
-        
-        // Google OAuth ID와 저장된 userId를 정규화하여 비교
-        const normalizedReservationUserId = String(reservation.userId).replace(/^"(.*)"$/, '$1');
-        const normalizedCurrentUserId = String(req.user.id).replace(/^"(.*)"$/, '$1');
-        const isOwner = normalizedReservationUserId === normalizedCurrentUserId;
+        const isOwner = String(reservation.userId).includes(String(req.user.id));
         
         console.log('권한 확인:', { 
             isOwner, 
             isAdmin,
-            normalizedReservationUserId,
-            normalizedCurrentUserId,
-            rawReservationUserId: String(reservation.userId),
-            rawCurrentUserId: String(req.user.id)
+            isTeacher,
+            reservationUserId: String(reservation.userId),
+            currentUserId: String(req.user.id)
         });
         
-        if (isOwner || isAdmin) {
+        if (isOwner || isAdmin || isTeacher) {
             const result = await Reservation.findByIdAndDelete(objectId);
             console.log('삭제 결과:', result ? '성공' : '실패');
             
@@ -436,8 +430,8 @@ app.delete('/reservations/:id', isAuthenticated, async (req, res) => {
         } else {
             res.status(403).json({ 
                 error: '예약을 삭제할 권한이 없습니다.',
-                reservationUserId: normalizedReservationUserId,
-                yourUserId: normalizedCurrentUserId
+                reservationUserId: String(reservation.userId),
+                yourUserId: String(req.user.id)
             });
         }
     } catch (error) {
