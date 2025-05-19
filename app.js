@@ -3,10 +3,13 @@ const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const LocalStrategy = require('passport-local').Strategy;
+const bcrypt = require('bcrypt');
 const path = require('path');
 const fs = require('fs').promises;
 const mongoose = require('mongoose');
 const Reservation = require('./models/Reservation');
+const Teacher = require('./models/Teacher');
 
 const app = express();
 
@@ -102,6 +105,41 @@ async (accessToken, refreshToken, profile, done) => {
     return done(null, profile);
 }));
 
+// Passport Local Strategy 설정 (교사용 비밀번호 로그인)
+passport.use(new LocalStrategy(
+    { usernameField: 'email', passwordField: 'password' },
+    async (email, password, done) => {
+        try {
+            // 이메일이 donghwa.hs.kr로 끝나는지 확인
+            if (!email.endsWith('@donghwa.hs.kr')) {
+                return done(null, false, { message: '동화고등학교 계정만 사용 가능합니다.' });
+            }
+            
+            // 교사 계정 찾기
+            const teacher = await Teacher.findOne({ email });
+            if (!teacher) {
+                return done(null, false, { message: '등록되지 않은 교사 계정입니다.' });
+            }
+            
+            // 비밀번호 확인
+            const isMatch = await bcrypt.compare(password, teacher.password);
+            if (!isMatch) {
+                return done(null, false, { message: '비밀번호가 일치하지 않습니다.' });
+            }
+            
+            // 로그인 성공
+            return done(null, {
+                id: teacher._id,
+                displayName: teacher.name,
+                emails: [{ value: teacher.email }],
+                isTeacher: true
+            });
+        } catch (error) {
+            return done(error);
+        }
+    }
+));
+
 passport.serializeUser((user, done) => {
     done(null, user);
 });
@@ -149,6 +187,54 @@ app.get('/logout', (req, res) => {
     req.logout(() => {
         res.redirect('/');
     });
+});
+
+// 교사 로그인 라우트
+app.post('/auth/teacher', passport.authenticate('local', {
+    failureRedirect: '/?error=login',
+    failureMessage: true
+}), (req, res) => {
+    res.redirect('/calendar');
+});
+
+// 교사 계정 등록 라우트 (관리자만 접근 가능)
+app.post('/auth/register-teacher', isAuthenticated, async (req, res) => {
+    try {
+        // 관리자 권한 확인
+        const isAdmin = req.user.emails && req.user.emails[0] && req.user.emails[0].value === '2024257@donghwa.hs.kr';
+        if (!isAdmin) {
+            return res.status(403).json({ error: '관리자만 접근 가능합니다.' });
+        }
+        
+        const { name, email, password } = req.body;
+        
+        // 이메일 형식 확인
+        if (!email.endsWith('@donghwa.hs.kr')) {
+            return res.status(400).json({ error: '동화고등학교 이메일만 사용 가능합니다.' });
+        }
+        
+        // 이미 등록된 이메일인지 확인
+        const existingTeacher = await Teacher.findOne({ email });
+        if (existingTeacher) {
+            return res.status(400).json({ error: '이미 등록된 이메일입니다.' });
+        }
+        
+        // 비밀번호 해싱
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
+        // 새 교사 계정 생성
+        const newTeacher = new Teacher({
+            name,
+            email,
+            password: hashedPassword
+        });
+        
+        await newTeacher.save();
+        res.json({ success: true, message: '교사 계정이 등록되었습니다.' });
+    } catch (error) {
+        console.error('교사 계정 등록 오류:', error);
+        res.status(500).json({ error: '교사 계정 등록 중 오류가 발생했습니다.' });
+    }
 });
 
 // 예약 관련 라우트

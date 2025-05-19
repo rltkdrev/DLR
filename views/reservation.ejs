@@ -80,7 +80,27 @@
                 <div class="reservation-list">
                     <h4>예약 현황</h4>
                     <input type="hidden" id="selectedDate" value="">
-                    <div id="reservationList"></div>
+                    
+                    <!-- 과학실 탭 추가 -->
+                    <ul class="nav nav-tabs mb-3" id="labTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="lab1-tab" data-bs-toggle="tab" data-bs-target="#lab1" type="button" role="tab" aria-controls="lab1" aria-selected="true">과학실 1</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="lab2-tab" data-bs-toggle="tab" data-bs-target="#lab2" type="button" role="tab" aria-controls="lab2" aria-selected="false">과학실 2</button>
+                        </li>
+                    </ul>
+                    
+                    <!-- 탭 콘텐츠 -->
+                    <div class="tab-content" id="labTabContent">
+                        <div class="tab-pane fade show active" id="lab1" role="tabpanel" aria-labelledby="lab1-tab">
+                            <div id="reservationListLab1"></div>
+                        </div>
+                        <div class="tab-pane fade" id="lab2" role="tabpanel" aria-labelledby="lab2-tab">
+                            <div id="reservationListLab2"></div>
+                        </div>
+                    </div>
+                    
                     <a href="#" id="reserveButton" class="btn btn-primary mt-3" style="display: none;">예약</a>
                 </div>
             </div>
@@ -99,8 +119,11 @@
             console.log('캘린더 초기화 시작...');
 
             function showReservationsForDate(dateStr) {
-                const reservationList = document.getElementById('reservationList');
-                reservationList.innerHTML = '';
+                const reservationListLab1 = document.getElementById('reservationListLab1');
+                const reservationListLab2 = document.getElementById('reservationListLab2');
+                reservationListLab1.innerHTML = '';
+                reservationListLab2.innerHTML = '';
+                
                 console.log('선택된 날짜의 이벤트 표시:', dateStr, '이벤트 수:', 
                             allEvents.filter(ev => new Date(ev.start).toISOString().slice(0,10) === dateStr).length);
                 
@@ -129,7 +152,13 @@
                                         data-event-id="${event.id}">삭제</button>
                             </div>
                         `;
-                        reservationList.appendChild(reservationItem);
+                        
+                        // 과학실에 따라 다른 리스트에 추가
+                        if (event.extendedProps.lab === '1') {
+                            reservationListLab1.appendChild(reservationItem);
+                        } else {
+                            reservationListLab2.appendChild(reservationItem);
+                        }
                     });
                 
                 // 예약 버튼 표시
@@ -147,6 +176,26 @@
                 dayMaxEvents: true,
                 displayEventTime: false,
                 height: window.innerWidth < 768 ? 'auto' : undefined, // 모바일에서는 높이 자동 조정
+                moreLinkContent: function(args) {
+                    return '+ ' + args.num + '개 더보기';
+                },
+                eventContent: function(arg) {
+                    // 모바일에서 이벤트 내용 간소화
+                    if (window.innerWidth < 768) {
+                        return {
+                            html: `
+                                <div class="fc-event-main-frame">
+                                    <div class="fc-event-title-container">
+                                        <div class="fc-event-title fc-sticky">
+                                            ${arg.event.title.split('[')[0]}${arg.event.title.includes('과학실') ? ' [' + arg.event.title.split('[').pop() : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                            `
+                        };
+                    }
+                    return null; // 기본 렌더링 사용
+                },
                 events: function(fetchInfo, successCallback, failureCallback) {
                     console.log('이벤트 데이터 가져오기 시작...');
                     
