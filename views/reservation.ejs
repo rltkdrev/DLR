@@ -173,11 +173,12 @@
                     center: 'title',
                     right: ''
                 },
-                dayMaxEvents: 3, // 하루에 최대 3개의 이벤트만 표시
+                dayMaxEvents: 2, // 하루에 최대 2개의 이벤트만 표시
+                dayMaxEventRows: 2, // 강제로 2줄만 표시하도록 설정
                 displayEventTime: false,
                 height: window.innerWidth < 768 ? 'auto' : undefined,
                 moreLinkContent: function(args) {
-                    return '+ ' + args.num + '개 더보기';
+                    return '+ ' + args.num + '개';
                 },
                 eventContent: function(arg) {
                     // 모바일에서 이벤트 내용 간소화
