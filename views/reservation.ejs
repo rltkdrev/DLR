@@ -210,6 +210,9 @@
                         reservationListLab2.appendChild(domCache.reservationItems[dateStr].lab2);
                     }
                     
+                    // 예약 버튼 표시
+                    document.getElementById('reserveButton').style.display = 'block';
+                    
                     return;
                 }
                 
@@ -290,6 +293,9 @@
                 // 한 번에 DOM에 추가
                 reservationListLab1.appendChild(fragmentLab1);
                 reservationListLab2.appendChild(fragmentLab2);
+                
+                // 예약 버튼 표시
+                document.getElementById('reserveButton').style.display = 'block';
                 
                 // 결과를 캐시에 저장
                 domCache.reservationItems[dateStr] = {
