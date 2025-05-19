@@ -20,15 +20,17 @@
         
         /* 캘린더 이벤트 높이 설정 */
         .fc-event {
-            min-height: 25px !important;
-            padding: 3px !important;
-            margin-bottom: 2px !important;
+            min-height: 16px !important;
+            padding: 2px !important;
+            margin-bottom: 1px !important;
         }
         .fc-daygrid-event {
-            padding: 5px 3px !important;
+            padding: 2px 3px !important;
         }
         .fc-event-title {
-            line-height: 1.5 !important;
+            line-height: 1.2 !important;
+            color: white !important;
+            font-size: 0.85em;
         }
         
         /* 모바일 화면 최적화 */
@@ -194,23 +196,21 @@
                     return '+ ' + args.num + '개';
                 },
                 eventContent: function(arg) {
-                    // 모바일에서 이벤트 내용 간소화
-                    if (window.innerWidth < 768) {
-                        const title = arg.event.title.split('[')[0];
-                        const lab = arg.event.title.includes('과학실') ? ' [' + arg.event.title.split('[').pop() : '';
-                        return {
-                            html: `
-                                <div class="fc-event-main-frame">
-                                    <div class="fc-event-title-container">
-                                        <div class="fc-event-title fc-sticky">
-                                            ${title}${lab}
-                                        </div>
+                    // 모든 디바이스에서 간결하게 표시
+                    const role = arg.event.extendedProps.role === 'teacher' ? '교사' : '학생';
+                    const name = arg.event.title.split(' ')[2] || '';
+                    
+                    return {
+                        html: `
+                            <div class="fc-event-main-frame">
+                                <div class="fc-event-title-container">
+                                    <div class="fc-event-title fc-sticky">
+                                        [${role}] ${name}
                                     </div>
                                 </div>
-                            `
-                        };
-                    }
-                    return null; // 기본 렌더링 사용
+                            </div>
+                        `
+                    };
                 },
                 events: function(fetchInfo, successCallback, failureCallback) {
                     console.log('이벤트 데이터 가져오기 시작...');

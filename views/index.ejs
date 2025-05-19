@@ -99,10 +99,10 @@
                     구글로 로그인
                 </a>
                 <div class="teacher-login-box">
-                    <div class="input-group mb-2">
+                    <div class="input-group mb-2 position-relative">
                         <input type="password" id="teacherPassword" class="form-control" placeholder="교사용 비밀번호">
-                        <button class="btn btn-outline-secondary btn-sm" type="button" id="togglePassword" style="padding: 0.25rem 0.5rem;">
-                            <i class="fa fa-eye fa-sm"></i>
+                        <button type="button" id="togglePassword" class="position-absolute end-0 top-50 translate-middle-y bg-transparent border-0" style="z-index: 10; right: 10px;">
+                            <i class="fa fa-eye fa-sm text-secondary"></i>
                         </button>
                     </div>
                     <a href="#" class="btn btn-secondary" onclick="handleTeacherLogin(event)">
