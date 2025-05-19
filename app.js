@@ -107,33 +107,20 @@ async (accessToken, refreshToken, profile, done) => {
 
 // Passport Local Strategy 설정 (교사용 비밀번호 로그인)
 passport.use(new LocalStrategy(
-    { usernameField: 'email', passwordField: 'password' },
-    async (email, password, done) => {
+    { usernameField: 'password', passwordField: 'password' },
+    async (password, done) => {
         try {
-            // 이메일이 donghwa.hs.kr로 끝나는지 확인
-            if (!email.endsWith('@donghwa.hs.kr')) {
-                return done(null, false, { message: '동화고등학교 계정만 사용 가능합니다.' });
+            // 하드코딩된 비밀번호 확인
+            if (password === 'donghwascience') {
+                // 로그인 성공
+                return done(null, {
+                    id: 'teacher',
+                    displayName: '교사',
+                    isTeacher: true
+                });
             }
             
-            // 교사 계정 찾기
-            const teacher = await Teacher.findOne({ email });
-            if (!teacher) {
-                return done(null, false, { message: '등록되지 않은 교사 계정입니다.' });
-            }
-            
-            // 비밀번호 확인
-            const isMatch = await bcrypt.compare(password, teacher.password);
-            if (!isMatch) {
-                return done(null, false, { message: '비밀번호가 일치하지 않습니다.' });
-            }
-            
-            // 로그인 성공
-            return done(null, {
-                id: teacher._id,
-                displayName: teacher.name,
-                emails: [{ value: teacher.email }],
-                isTeacher: true
-            });
+            return done(null, false, { message: '비밀번호가 일치하지 않습니다.' });
         } catch (error) {
             return done(error);
         }
