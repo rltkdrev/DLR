@@ -34,6 +34,39 @@
             font-weight: bold !important;
         }
         
+        /* 날짜 셀 이벤트 카운트 스타일 */
+        .date-event-count {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2px;
+            font-size: 0.8em;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            width: 90%;
+        }
+        .count-badge {
+            font-weight: bold;
+            margin-bottom: 2px;
+            color: #333;
+        }
+        .lab-count {
+            font-size: 0.75em;
+            margin-bottom: 1px;
+            padding: 1px 3px;
+            border-radius: 3px;
+            color: white;
+        }
+        .lab-1-count {
+            background-color: #3788d8;
+        }
+        .lab-2-count {
+            background-color: #28a745;
+        }
+        
         /* 모바일 화면 최적화 */
         @media (max-width: 768px) {
             .calendar-container {
@@ -189,29 +222,11 @@
                     center: 'title',
                     right: ''
                 },
-                dayMaxEvents: 2, // 하루에 최대 2개의 이벤트만 표시
-                dayMaxEventRows: 2, // 강제로 2줄만 표시하도록 설정
+                dayMaxEvents: false,
                 displayEventTime: false,
                 height: window.innerWidth < 768 ? 'auto' : undefined,
-                moreLinkContent: function(args) {
-                    return '+ ' + args.num + '개';
-                },
-                eventContent: function(arg) {
-                    // 모든 디바이스에서 간결하게 표시
-                    const role = arg.event.extendedProps.role === 'teacher' ? '교사' : '학생';
-                    const name = arg.event.title.split(' ')[2] || '';
-                    
-                    return {
-                        html: `
-                            <div class="fc-event-main-frame">
-                                <div class="fc-event-title-container">
-                                    <div class="fc-event-title fc-sticky">
-                                        [${role}] ${name}
-                                    </div>
-                                </div>
-                            </div>
-                        `
-                    };
+                dayCellDidMount: function(arg) {
+                    // 날짜 셀이 마운트될 때 이벤트 개수를 표시
                 },
                 events: function(fetchInfo, successCallback, failureCallback) {
                     console.log('이벤트 데이터 가져오기 시작...');
@@ -245,32 +260,66 @@
                             }
                             
                             try {
-                                // 과학실에 따라 이벤트 색상 설정
+                                allEvents = events;
+                                
+                                // 날짜별로 예약 수를 집계
+                                const eventCountByDate = {};
                                 events.forEach(event => {
+                                    const date = new Date(event.start).toISOString().slice(0,10);
+                                    if (!eventCountByDate[date]) {
+                                        eventCountByDate[date] = {count: 0, lab1: 0, lab2: 0};
+                                    }
+                                    eventCountByDate[date].count++;
+                                    
                                     if (event.extendedProps && event.extendedProps.lab === '1') {
-                                        event.className = 'lab-1-event';
+                                        eventCountByDate[date].lab1++;
                                     } else if (event.extendedProps && event.extendedProps.lab === '2') {
-                                        event.className = 'lab-2-event';
+                                        eventCountByDate[date].lab2++;
                                     }
                                 });
-                                allEvents = events;
-                                successCallback(events);
+                                
+                                // 날짜별 예약 수를 보여주는 이벤트로 변환
+                                const countEvents = Object.keys(eventCountByDate).map(date => {
+                                    const counts = eventCountByDate[date];
+                                    return {
+                                        start: date,
+                                        display: 'background',
+                                        backgroundColor: 'transparent',
+                                        classNames: ['event-count'],
+                                        allDay: true,
+                                        extendedProps: {
+                                            count: counts.count,
+                                            lab1: counts.lab1,
+                                            lab2: counts.lab2
+                                        }
+                                    };
+                                });
+                                
+                                successCallback(countEvents);
                                 
                                 // 초기 로딩 시 오늘 날짜의 예약 정보를 표시
                                 showReservationsForDate(todayStr);
                                 
-                                // 오늘 날짜 표시
-                                const dateDisplay = document.createElement('div');
-                                dateDisplay.className = 'alert alert-info mt-3';
-                                dateDisplay.textContent = `선택된 날짜: ${todayStr}`;
-                                const existingDateDisplay = document.querySelector('.alert-info');
-                                if (existingDateDisplay) {
-                                    existingDateDisplay.remove();
-                                }
-                                document.querySelector('.reservation-list').insertBefore(
-                                    dateDisplay,
-                                    document.getElementById('reservationList')
-                                );
+                                // 기존 이벤트 표시 후 날짜별 카운트 표시
+                                setTimeout(() => {
+                                    Object.keys(eventCountByDate).forEach(date => {
+                                        const counts = eventCountByDate[date];
+                                        const dateEl = document.querySelector(`.fc-day[data-date="${date}"]`);
+                                        if (dateEl) {
+                                            const countEl = document.createElement('div');
+                                            countEl.className = 'date-event-count';
+                                            countEl.innerHTML = `<div class="count-badge">예약: ${counts.count}건</div>`;
+                                            if (counts.lab1 > 0) {
+                                                countEl.innerHTML += `<div class="lab-count lab-1-count">과학실1: ${counts.lab1}건</div>`;
+                                            }
+                                            if (counts.lab2 > 0) {
+                                                countEl.innerHTML += `<div class="lab-count lab-2-count">과학실2: ${counts.lab2}건</div>`;
+                                            }
+                                            dateEl.appendChild(countEl);
+                                        }
+                                    });
+                                }, 100);
+                                
                             } catch (error) {
                                 console.error('이벤트 처리 중 오류:', error);
                                 failureCallback(error);
