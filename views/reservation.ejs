@@ -197,25 +197,7 @@
                 const reservationListLab1 = document.getElementById('reservationListLab1');
                 const reservationListLab2 = document.getElementById('reservationListLab2');
                 
-                // 캐시에서 이미 생성된 요소가 있으면 재사용
-                if (domCache.reservationItems[dateStr]) {
-                    reservationListLab1.innerHTML = '';
-                    reservationListLab2.innerHTML = '';
-                    
-                    if (domCache.reservationItems[dateStr].lab1) {
-                        reservationListLab1.appendChild(domCache.reservationItems[dateStr].lab1);
-                    }
-                    
-                    if (domCache.reservationItems[dateStr].lab2) {
-                        reservationListLab2.appendChild(domCache.reservationItems[dateStr].lab2);
-                    }
-                    
-                    // 예약 버튼 표시
-                    document.getElementById('reserveButton').style.display = 'block';
-                    
-                    return;
-                }
-                
+                // 초기화
                 reservationListLab1.innerHTML = '';
                 reservationListLab2.innerHTML = '';
                 
@@ -227,6 +209,14 @@
                 if (filteredEvents.length === 0) {
                     reservationListLab1.innerHTML = '<div class="text-muted">예약이 없습니다</div>';
                     reservationListLab2.innerHTML = '<div class="text-muted">예약이 없습니다</div>';
+                    
+                    // 예약 버튼 표시
+                    document.getElementById('reserveButton').style.display = 'block';
+                    
+                    // 캐시 삭제
+                    if (domCache.reservationItems[dateStr]) {
+                        delete domCache.reservationItems[dateStr];
+                    }
                     return;
                 }
                 
@@ -236,15 +226,34 @@
                     return getPeriodValue(a) - getPeriodValue(b);
                 });
                 
+                // 과학실별로 분류하여 확인
+                const hasLab1Events = filteredEvents.some(event => event.extendedProps.lab === '1');
+                const hasLab2Events = filteredEvents.some(event => event.extendedProps.lab === '2');
+                
                 // DOM 조작 최소화를 위한 DocumentFragment 사용
                 const fragmentLab1 = document.createDocumentFragment();
                 const fragmentLab2 = document.createDocumentFragment();
+                
+                // 각 과학실별로 예약이 없는 경우 메시지 표시
+                if (!hasLab1Events) {
+                    const emptyMessage = document.createElement('div');
+                    emptyMessage.className = 'text-muted';
+                    emptyMessage.textContent = '예약이 없습니다';
+                    fragmentLab1.appendChild(emptyMessage);
+                }
+                
+                if (!hasLab2Events) {
+                    const emptyMessage = document.createElement('div');
+                    emptyMessage.className = 'text-muted';
+                    emptyMessage.textContent = '예약이 없습니다';
+                    fragmentLab2.appendChild(emptyMessage);
+                }
                 
                 filteredEvents.forEach(event => {
                     const reservationItem = document.createElement('div');
                     reservationItem.className = 'reservation-item mb-2 p-2 border-bottom';
                     const labClass = event.extendedProps.lab === '1' ? 'lab-1-event' : 'lab-2-event';
-                    const role = event.extendedProps.role === 'teacher' ? '교사' : '학생';
+                    const role = event.title.includes('[교사]') ? '교사' : '학생';
                     
                     // 이름과 소속 추출
                     let name = '';
@@ -418,10 +427,16 @@
                 });
                 
                 setTimeout(() => {
-                    Object.keys(reservationsCache).forEach(date => {
+                    // 캘린더의 모든 날짜 셀 가져오기
+                    const allDateCells = document.querySelectorAll('.fc-daygrid-day');
+                    
+                    // 모든 날짜 셀에 대해 처리
+                    allDateCells.forEach(dateEl => {
+                        const date = dateEl.getAttribute('data-date');
                         const counts = reservationsCache[date];
-                        const dateEl = document.querySelector(`.fc-daygrid-day[data-date="${date}"]`);
-                        if (dateEl && !dateEl.querySelector('.date-event-count')) {
+                        
+                        // 해당 날짜에 예약이 있는 경우만 표시
+                        if (counts && counts.count > 0 && !dateEl.querySelector('.date-event-count')) {
                             const countEl = document.createElement('div');
                             countEl.className = 'date-event-count';
                             countEl.innerHTML = `<div class="count-badge">예약: ${counts.count}건</div>`;
@@ -508,12 +523,37 @@
                             const responseData = await response.json();
                             
                             if (response.ok) {
-                                // 캐시 초기화
-                                reservationsCache = {};
+                                // 삭제된 이벤트 찾기
+                                const deletedEvent = allEvents.find(event => event.id === eventId);
+                                if (deletedEvent) {
+                                    const date = new Date(deletedEvent.start).toISOString().slice(0,10);
+                                    
+                                    // 현재 allEvents 배열에서 삭제된 이벤트 제거
+                                    allEvents = allEvents.filter(event => event.id !== eventId);
+                                    
+                                    // 해당 날짜의 캐시 업데이트
+                                    if (reservationsCache[date]) {
+                                        reservationsCache[date].count--;
+                                        
+                                        // 과학실 별 카운트 감소
+                                        if (deletedEvent.extendedProps && deletedEvent.extendedProps.lab === '1') {
+                                            reservationsCache[date].lab1--;
+                                        } else if (deletedEvent.extendedProps && deletedEvent.extendedProps.lab === '2') {
+                                            reservationsCache[date].lab2--;
+                                        }
+                                        
+                                        // 해당 날짜의 모든 예약이 삭제되었으면 캐시에서 제거
+                                        if (reservationsCache[date].count <= 0) {
+                                            delete reservationsCache[date];
+                                        }
+                                    }
+                                }
+                                
+                                // DOM 캐시 초기화
                                 domCache.reservationItems = {};
                                 
-                                // 이벤트 다시 가져오기
-                                calendar.refetchEvents();
+                                // 캘린더 날짜 카운트 표시 업데이트
+                                showDateCounts();
                                 
                                 // 현재 선택된 날짜를 다시 가져와 예약 목록 갱신
                                 const selectedDate = document.getElementById('selectedDate').value;

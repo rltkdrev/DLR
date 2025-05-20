@@ -111,7 +111,7 @@ passport.use(new LocalStrategy(
     async (password, done) => {
         try {
             // 하드코딩된 비밀번호 확인
-            if (password === 'donghwascience') {
+            if (password === '0527') {
                 // 로그인 성공
                 return done(null, {
                     id: 'teacher',
