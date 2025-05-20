@@ -100,7 +100,7 @@
                 </a>
                 <div class="teacher-login-box">
                     <div class="input-group mb-2 position-relative">
-                        <input type="password" id="teacherPassword" class="form-control" placeholder="교사용 비밀번호">
+                        <input type="password" id="teacherPassword" class="form-control" placeholder="교사용 비밀번호" autocomplete="new-password">
                         <button type="button" id="togglePassword" class="position-absolute end-0 top-50 translate-middle-y bg-transparent border-0" style="z-index: 10; right: 10px;">
                             <i class="fa fa-eye fa-sm text-secondary"></i>
                         </button>
@@ -111,6 +111,14 @@
                 </div>
                 <p>동화고등학교 계정으로 로그인하세요.</p>
                 <p>동화고등학교 송현우 제작</p>
+                <div>
+                    <a href="/clear-cache" class="btn btn-sm btn-outline-secondary mt-3">캐시 초기화</a>
+                </div>
+                <% if (typeof cacheCleared !== 'undefined' && cacheCleared) { %>
+                    <div class="alert alert-success mt-3">
+                        캐시가 초기화되었습니다. 이제 교사용 비밀번호 '0527'로 로그인해 보세요.
+                    </div>
+                <% } %>
             </div>
             
             <!-- 로그인 탭 -->
@@ -175,6 +183,30 @@
             }, 500);
         }
 
+        // 캐시가 초기화되었을 때 브라우저 저장소 정리
+        if (urlParams.get('cache') === 'cleared') {
+            // URL에서 캐시 파라미터 제거
+            window.history.replaceState({}, document.title, '/');
+            
+            // 브라우저 저장소 초기화
+            try {
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                // 모든 쿠키 삭제
+                document.cookie.split(';').forEach(function(c) {
+                    document.cookie = c.trim().split('=')[0] + '=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/';
+                });
+                
+                // 자동완성 초기화
+                document.getElementById('teacherPassword').value = '';
+                
+                console.log('브라우저 저장소가 초기화되었습니다.');
+            } catch (e) {
+                console.error('저장소 초기화 중 오류 발생:', e);
+            }
+        }
+
         function handleTeacherLogin(event) {
             event.preventDefault();
             const password = document.getElementById('teacherPassword').value;
@@ -186,16 +218,18 @@
                 },
                 body: JSON.stringify({ password: password })
             })
-            .then(response => {
-                if (response.ok) {
+            .then(response => response.json().then(data => ({status: response.status, body: data})))
+            .then(({ status, body }) => {
+                if (status === 200) {
                     window.location.href = '/calendar';
                 } else {
-                    alert('비밀번호가 일치하지 않습니다.');
+                    // 명확한 오류 메시지 표시
+                    alert(`비밀번호가 일치하지 않습니다. 현재 교사용 비밀번호는 '0527'입니다.${body.error ? ` (${body.error})` : ''}`);
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('로그인 중 오류가 발생했습니다.');
+                alert('로그인 중 오류가 발생했습니다. 현재 교사용 비밀번호는 "0527"입니다.');
             });
         }
         
