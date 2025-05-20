@@ -147,18 +147,7 @@ function isAuthenticated(req, res, next) {
 
 // 라우트 설정
 app.get('/', (req, res) => {
-    res.render('index', { 
-        user: req.user,
-        cacheCleared: req.query.cache === 'cleared'
-    });
-});
-
-// 캐시 초기화 라우트
-app.get('/clear-cache', (req, res) => {
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-    res.set('Pragma', 'no-cache');
-    res.set('Expires', '0');
-    res.redirect('/?cache=cleared');
+    res.render('index', { user: req.user });
 });
 
 app.get('/calendar', isAuthenticated, (req, res) => {

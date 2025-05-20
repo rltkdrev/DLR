@@ -111,14 +111,6 @@
                 </div>
                 <p>동화고등학교 계정으로 로그인하세요.</p>
                 <p>동화고등학교 송현우 제작</p>
-                <div>
-                    <a href="/clear-cache" class="btn btn-sm btn-outline-secondary mt-3">캐시 초기화</a>
-                </div>
-                <% if (typeof cacheCleared !== 'undefined' && cacheCleared) { %>
-                    <div class="alert alert-success mt-3">
-                        캐시가 초기화되었습니다. 이제 교사용 비밀번호 '0527'로 로그인해 보세요.
-                    </div>
-                <% } %>
             </div>
             
             <!-- 로그인 탭 -->
@@ -181,30 +173,6 @@
             setTimeout(() => {
                 alert('동화고등학교 계정(@donghwa.hs.kr)만 로그인 가능합니다.');
             }, 500);
-        }
-
-        // 캐시가 초기화되었을 때 브라우저 저장소 정리
-        if (urlParams.get('cache') === 'cleared') {
-            // URL에서 캐시 파라미터 제거
-            window.history.replaceState({}, document.title, '/');
-            
-            // 브라우저 저장소 초기화
-            try {
-                localStorage.clear();
-                sessionStorage.clear();
-                
-                // 모든 쿠키 삭제
-                document.cookie.split(';').forEach(function(c) {
-                    document.cookie = c.trim().split('=')[0] + '=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/';
-                });
-                
-                // 자동완성 초기화
-                document.getElementById('teacherPassword').value = '';
-                
-                console.log('브라우저 저장소가 초기화되었습니다.');
-            } catch (e) {
-                console.error('저장소 초기화 중 오류 발생:', e);
-            }
         }
 
         function handleTeacherLogin(event) {
