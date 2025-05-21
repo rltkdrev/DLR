@@ -1,232 +1,123 @@
 # 동화고등학교 과학실 예약 시스템
 
-동화고등학교 구성원들이 과학실을 효율적으로 예약하고 관리할 수 있는 웹 기반 예약 시스템입니다.
+동화고등학교 과학실 예약 시스템은 학교 내 과학실 사용을 효율적으로 관리하기 위한 웹 기반 애플리케이션입니다. 교사와 학생들이 날짜와 교시를 선택하여 과학실을 예약하고, 예약 현황을 캘린더 형태로 확인할 수 있습니다.
 
 ## 주요 기능
 
-- **다중 인증 방식**: 구글 계정(@donghwa.hs.kr) 로그인 및 교사용 비밀번호 로그인 지원
-- **직관적인 캘린더**: 날짜별 예약 건수 한눈에 확인 가능
-- **과학실 별도 관리**: 과학실 1, 2 분리 탭으로 각각 예약 현황 제공
-- **교시별 예약**: 1~7교시 및 방과후 시간대별 예약 관리
-- **사용자 권한 관리**: 일반 사용자, 교사, 관리자 세분화된 권한 부여
-- **반응형 디자인**: 데스크탑부터 모바일까지 모든 기기에서 최적화된 UI
-- **실시간 업데이트**: 페이지 전환 없이 예약 생성, 조회, 삭제 가능
+- **사용자 인증**: Google 계정(동화고등학교 도메인)과 교사용 비밀번호 로그인
+- **과학실 예약**: 날짜 및 교시 선택을 통한 과학실 예약
+- **복수 교시 예약**: 한 번에 여러 교시 선택 가능
+- **예약 현황 확인**: 캘린더와 목록 형태로 예약 현황 확인
+- **예약 관리**: 본인 예약 취소 및 관리자/교사의 예약 관리
 
-## 기술 스택
+## 시스템 구성
 
-- **백엔드**: Node.js v22, Express 4.18
-- **인증**: Google OAuth 2.0, Passport.js, bcrypt
-- **프론트엔드**: HTML5, CSS3, JavaScript ES6, Bootstrap 5.1
-- **캘린더**: FullCalendar 5.10
-- **데이터베이스**: MongoDB Atlas (MongoDB 6.x)
-- **배포**: Vercel
+### 기술 스택
+
+- **프론트엔드**: HTML, CSS, JavaScript, Bootstrap 5, FullCalendar
+- **백엔드**: Node.js, Express.js
+- **데이터베이스**: MongoDB
+- **인증**: Passport.js (Google OAuth, Local Strategy)
+
+### 주요 파일 구조
+
+```
+reservation/
+│
+├── app.js                 - 메인 애플리케이션 파일
+├── models/                - 데이터 모델
+│   ├── Reservation.js     - 예약 정보 스키마
+│   └── Teacher.js         - 교사 계정 스키마
+│
+├── views/                 - EJS 템플릿
+│   ├── index.ejs          - 메인 페이지
+│   ├── reservation.ejs    - 예약 현황 페이지
+│   └── new-reservation.ejs - 새 예약 생성 페이지
+│
+├── public/                - 정적 파일
+│   └── css/               - 스타일시트
+│       └── style.css      - 기본 스타일
+│
+└── data/                  - 데이터 저장소
+    └── reservations.json  - 예약 데이터 백업
+```
 
 ## 설치 방법
 
-### 사전 요구사항
-
-- Node.js (v14 이상)
-- npm (v6 이상)
-- MongoDB 계정 또는 MongoDB Atlas 클러스터
-
-### 설치 단계
-
 1. 저장소 클론
-
-```bash
-git clone https://github.com/rltkdrev/Donghwa.git
-cd Donghwa
-```
+   ```
+   git clone https://github.com/yourusername/reservation.git
+   cd reservation
+   ```
 
 2. 의존성 설치
+   ```
+   npm install
+   ```
 
-```bash
-npm install
-```
+3. 환경 설정
+   `.env` 파일 생성:
+   ```
+   MONGODB_URI=mongodb://localhost:27017/reservation
+   SESSION_SECRET=your-secret-key
+   GOOGLE_CLIENT_ID=your-google-client-id
+   GOOGLE_CLIENT_SECRET=your-google-client-secret
+   CALLBACK_URL=http://localhost:3000/auth/google/callback
+   ```
 
-3. 환경 변수 설정
+4. 서버 실행
+   ```
+   npm start
+   ```
 
-프로젝트 루트에 `.env` 파일을 생성하고 다음 내용을 채웁니다:
+5. 브라우저에서 접속
+   ```
+   http://localhost:3000
+   ```
 
-```
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-CALLBACK_URL=http://localhost:3000/auth/google/callback
-SESSION_SECRET=your_session_secret
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/database_name
-PORT=3000
-```
+## 사용 방법
 
-## 인증 시스템
+### 로그인
 
-### 구글 OAuth 설정 방법
+- **Google 계정**: 동화고등학교 도메인(@donghwa.hs.kr)을 가진 계정으로 로그인
+- **교사 계정**: 지정된 비밀번호로 교사 로그인
 
-1. [Google Cloud Console](https://console.cloud.google.com/)에 접속합니다.
-2. 새 프로젝트를 생성합니다.
-3. "API 및 서비스" > "사용자 인증 정보"로 이동합니다.
-4. "사용자 인증 정보 만들기" > "OAuth 클라이언트 ID" 선택:
-   - 애플리케이션 유형: 웹 애플리케이션
-   - 이름: 동화고등학교 과학실 예약
-   - 승인된 리디렉션 URI: 
-     - 개발 환경: `http://localhost:3000/auth/google/callback`
-     - 배포 환경: `https://your-vercel-domain.vercel.app/auth/google/callback`
-5. 생성된 클라이언트 ID와 비밀번호를 `.env` 파일에 넣습니다.
+### 예약 생성
 
-### 교사용 로그인 설정
+1. 캘린더 페이지에서 원하는 날짜 선택
+2. 예약 정보 입력 (이름, 소속, 직업)
+3. 과학실 선택 (과학실 1 또는 과학실 2)
+4. 원하는 교시 선택 (복수 선택 가능)
+5. '예약하기' 버튼 클릭
 
-- 보안을 위해 실제 운영 환경에서는 비밀번호를 변경하는 것을 권장합니다.
-- 비밀번호 변경 방법: `app.js` 파일에서 교사 로그인 라우트 부분을 수정합니다.
+### 예약 확인 및 관리
 
-```javascript
-// 교사 로그인 라우트 (app.js 내)
-if (password === 'your_new_password') {
-    // 로그인 로직
-}
-```
+- 캘린더에서 모든 예약 현황 확인
+- 날짜를 클릭하여 해당 날짜의 과학실별 예약 목록 확인
+- 본인 예약 또는 관리자/교사 권한으로 예약 삭제 가능
 
-## MongoDB 설정 방법
+## 성능 최적화
 
-1. [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)에 가입합니다.
-2. 새 클러스터를 생성합니다.
-3. "Database Access"에서 데이터베이스 사용자를 생성합니다.
-4. "Network Access"에서 IP 접근을 설정합니다 (개발 목적이라면 0.0.0.0/0으로 설정).
-5. "Clusters"에서 "Connect" 버튼을 클릭하고 "Connect your application"을 선택합니다.
-6. 연결 문자열(URI)을 복사하여 `.env` 파일의 `MONGODB_URI`에 붙여넣습니다.
+- **데이터 캐싱**: 서버 및 클라이언트에서 예약 데이터 캐싱
+- **이벤트 위임**: DOM 이벤트 처리 최적화
+- **반응형 디자인**: 다양한 화면 크기에 최적화된 UI
+- **사용자 경험 개선**: 로딩 인디케이터, 애니메이션 효과 등
 
-## 실행 방법
+## 보안 기능
 
-개발 모드로 실행:
+- **인증 및 권한 관리**: 사용자 역할 기반 접근 제어
+- **입력값 검증**: 클라이언트 및 서버 측 데이터 유효성 검사
+- **세션 관리**: 안전한 세션 처리 및 만료 설정
 
-```bash
-npm run dev
-```
+## 관리자 기능
 
-프로덕션 모드로 실행:
-
-```bash
-npm start
-```
-
-브라우저에서 `http://localhost:3000`으로 접속합니다.
-
-## 배포 방법 (Vercel)
-
-1. [Vercel](https://vercel.com/)에 가입하고 GitHub 계정을 연결합니다.
-2. "New Project"를 클릭하고 GitHub에서 저장소를 불러옵니다.
-3. 환경 변수를 설정합니다:
-   - `GOOGLE_CLIENT_ID`
-   - `GOOGLE_CLIENT_SECRET`
-   - `CALLBACK_URL` (배포 URL로 설정)
-   - `SESSION_SECRET`
-   - `MONGODB_URI`
-4. "Deploy"를 클릭하여 배포합니다.
-
-## 사용자 매뉴얼
-
-### 로그인 방법
-1. **구글 로그인**:
-   - 초기 화면에서 "구글로 로그인" 버튼 클릭
-   - @donghwa.hs.kr 계정으로만 로그인 가능
-   
-2. **교사용 로그인**:
-   - "교사용 로그인" 버튼 아래 비밀번호 입력 필드에 비밀번호 입력
-   - 비밀번호 표시/숨기기 버튼으로 입력 확인 가능
-   - 로그인 버튼 클릭
-
-### 예약 확인 방법
-1. 로그인 후 캘린더 화면으로 자동 이동
-2. 캘린더에서 각 날짜별 예약 건수 확인 가능
-3. 예약이 있는 날짜에는 "예약: N건" 형태로 표시
-4. 과학실 1과 과학실 2의 예약 건수가 각각 표시됨
-
-### 상세 예약 보기
-1. 예약 정보를 확인하려는 날짜 클릭
-2. 오른쪽 패널에 해당 날짜의 모든 예약이 탭으로 구분되어 표시
-3. "과학실 1" 탭과 "과학실 2" 탭으로 나누어 예약 확인 가능
-
-### 예약 방법
-1. 원하는 날짜 클릭
-2. 오른쪽 패널 하단의 "예약" 버튼 클릭
-3. 예약 정보 입력:
-   - 직업(교사/학생) 선택
-   - 이름 입력
-   - 소속(학년/반) 입력
-   - 과학실 선택(1 또는 2)
-   - 교시 선택(1~7교시 또는 방과후)
-4. "예약하기" 버튼 클릭
-
-### 예약 삭제
-1. 캘린더에서 예약이 있는 날짜 클릭
-2. 오른쪽 예약 목록에서 삭제하려는 예약의 "삭제" 버튼 클릭
-3. 확인 창에서 "확인" 선택
-
-### 권한 정보
-- **일반 사용자**: 자신의 예약만 보고 관리
-- **교사**: 모든 예약 보기 및 삭제 가능
-- **관리자**: 모든 예약 관리 및 시스템 설정 가능
-
-## 시스템 아키텍처
-
-```
-클라이언트 <-> Express 서버 <-> MongoDB
-    |            |
-    |            |--- 인증 (Google OAuth, Local)
-    |            |--- 세션 관리
-    |            |--- 예약 처리
-    |
-    |--- HTML/CSS/JS
-    |--- FullCalendar
-    |--- Bootstrap
-```
-
-## 데이터 모델
-
-### 예약 (Reservation)
-```javascript
-{
-  date: Date,          // 예약 날짜
-  dateString: String,  // 예약 날짜 문자열 형식
-  period: Number,      // 교시 (1-7, 8=방과후)
-  lab: String,         // 과학실 번호 ('1' 또는 '2')
-  role: String,        // 역할 ('teacher' 또는 'student')
-  name: String,        // 예약자 이름
-  department: String,  // 소속 (학년/반 등)
-  userId: String,      // 사용자 ID
-  userEmail: String,   // 사용자 이메일
-  createdAt: Date      // 생성 시간
-}
-```
-
-### 교사 (Teacher)
-```javascript
-{
-  name: String,       // 교사 이름
-  email: String,      // 교사 이메일 (@donghwa.hs.kr로 끝나야 함)
-  password: String,   // 암호화된 비밀번호
-  createdAt: Date     // 계정 생성 시간
-}
-```
-
-## 문제 해결 가이드
-
-### 로그인 문제
-- **구글 로그인 실패**: 계정이 @donghwa.hs.kr 도메인인지 확인
-- **교사 로그인 실패**: 비밀번호가 정확한지 확인
-
-### 예약 문제
-- **예약 생성 안 됨**: 네트워크 연결 및 선택한 시간대에 이미 예약이 있는지 확인
-- **예약 표시 안 됨**: 페이지 새로고침 또는 날짜 재선택 시도
-
-### 캘린더 문제
-- **예약 수 중복 표시**: 페이지 새로고침
-- **이벤트 로딩 느림**: 네트워크 연결 상태 확인
+- 모든 예약 관리 (조회, 삭제)
+- 교사 계정 관리
 
 ## 라이센스
 
-이 프로젝트는 MIT 라이센스를 따릅니다.
+이 프로젝트는 MIT 라이센스를 따릅니다. 자세한 내용은 LICENSE 파일을 참조하세요.
 
-## 개발자 정보
+## 문의 및 지원
 
-- 개발: 동화고등학교 송현우
-- 문의: 관리자 이메일 (2024257@donghwa.hs.kr,ghidrarev@gmail.com)
-- 최종 업데이트: 2025년 5월 20일
+시스템 관련 문의사항은 다음 이메일로 연락하세요: admin@donghwa.hs.kr
