@@ -253,31 +253,14 @@
                     const reservationItem = document.createElement('div');
                     reservationItem.className = 'reservation-item mb-2 p-2 border-bottom';
                     const labClass = event.extendedProps.lab === '1' ? 'lab-1-event' : 'lab-2-event';
-                    const role = event.title.includes('[교사]') ? '교사' : '학생';
                     
-                    // 이름과 소속 추출
-                    let name = '';
-                    let department = '';
+                    // extendedProps에서 직접 정보 가져오기
+                    const role = event.extendedProps.description.includes('직업: 교사') ? '교사' : '학생';
+                    const nameMatch = event.extendedProps.description.match(/이름: ([^\n]+)/);
+                    const departmentMatch = event.extendedProps.description.match(/소속: ([^\n]+)/);
                     
-                    // title에서 정보 추출 - 정규식 성능 최적화
-                    const titleParts = event.title.split(' ');
-                    if (titleParts.length >= 3) {
-                        name = titleParts[2];
-                        
-                        // 소속 추출 (괄호 안의 내용) - 미리 컴파일된 정규식 사용
-                        const departmentMatch = event.title.match(/\(([^)]+)\)/);
-                        if (departmentMatch && departmentMatch[1]) {
-                            department = departmentMatch[1];
-                        }
-                    }
-                    
-                    // extendedProps에서도 소속 정보 확인
-                    if (!department && event.extendedProps.department) {
-                        department = event.extendedProps.department;
-                    }
-                    
-                    // 소속에서 모든 괄호를 제거
-                    department = department.replace(/[()]/g, '');
+                    let name = nameMatch ? nameMatch[1] : '';
+                    let department = departmentMatch ? departmentMatch[1] : '';
                     
                     reservationItem.innerHTML = `
                         <div class="d-flex justify-content-between align-items-center">
