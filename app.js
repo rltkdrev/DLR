@@ -73,7 +73,8 @@ async function migrateReservationsAddLab() {
 app.use(session({
     secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
-    saveUninitialized: false
+    saveUninitialized: false,
+    cookie: { maxAge: 24 * 60 * 60 * 1000 } // 1일
 }));
 
 // Passport 초기화
@@ -88,6 +89,15 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(express.static('public'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// 오류 처리 미들웨어
+app.use((err, req, res, next) => {
+    console.error('서버 오류:', err);
+    res.status(500).json({
+        error: '서버 오류가 발생했습니다.',
+        message: process.env.NODE_ENV === 'development' ? err.message : '관리자에게 문의하세요.'
+    });
+});
 
 // Passport Google Strategy 설정
 passport.use(new GoogleStrategy({
@@ -144,6 +154,13 @@ function isAuthenticated(req, res, next) {
     }
     res.redirect('/');
 }
+
+// 예약 데이터 캐시
+let reservationsCache = {
+    data: null,
+    lastUpdated: 0,
+    ttl: 60 * 1000 // 캐시 유효시간 1분
+};
 
 // 라우트 설정
 app.get('/', (req, res) => {
@@ -246,31 +263,35 @@ app.post('/auth/register-teacher', isAuthenticated, async (req, res) => {
 app.get('/reservations', isAuthenticated, async (req, res) => {
     try {
         console.log('예약 데이터 요청 받음');
+        
+        // 캐시가 유효한지 확인
+        const now = Date.now();
+        if (reservationsCache.data && (now - reservationsCache.lastUpdated < reservationsCache.ttl)) {
+            console.log('캐시된 예약 데이터 사용');
+            return res.json(reservationsCache.data);
+        }
+        
         await connectToDatabase();
         
-        const reservations = await Reservation.find().lean();
-        console.log('조회된 예약 수:', reservations.length);
-
+        // 한 달 범위의 예약만 조회하도록 필터링
         const timeMin = new Date();
+        timeMin.setHours(0, 0, 0, 0);
+        
         const timeMax = new Date();
         timeMax.setMonth(timeMax.getMonth() + 1);
-
-        const filteredReservations = reservations.filter(reservation => {
-            const date = new Date(reservation.date);
-            return date >= timeMin && date <= timeMax;
-        }).sort((a, b) => {
-            const dateA = new Date(a.date);
-            const dateB = new Date(b.date);
-            if (dateA.getTime() === dateB.getTime()) {
-                return a.period - b.period;
+        timeMax.setHours(23, 59, 59, 999);
+        
+        const reservations = await Reservation.find({
+            date: {
+                $gte: timeMin,
+                $lte: timeMax
             }
-            return dateA - dateB;
-        });
-
-        console.log('필터링된 예약 수:', filteredReservations.length);
+        }).lean().sort({ date: 1, period: 1 });
+        
+        console.log('조회된 예약 수:', reservations.length);
 
         // FullCalendar 형식으로 변환
-        const events = filteredReservations.map(reservation => ({
+        const events = reservations.map(reservation => ({
             id: reservation._id.toString(),
             title: `[${reservation.role === 'teacher' ? '교사' : '학생'}] ${reservation.name} (${reservation.department}) [과학실 ${reservation.lab || '1'}]`,
             start: reservation.dateString || reservation.date,
@@ -282,6 +303,10 @@ app.get('/reservations', isAuthenticated, async (req, res) => {
             }
         }));
 
+        // 캐시 업데이트
+        reservationsCache.data = events;
+        reservationsCache.lastUpdated = now;
+        
         console.log('변환된 이벤트 수:', events.length);
         res.json(events);
     } catch (error) {
@@ -365,6 +390,9 @@ app.post('/reservations', isAuthenticated, async (req, res) => {
         const savedReservation = await newReservation.save();
         console.log('예약 저장 성공:', JSON.stringify(savedReservation));
         
+        // 캐시 무효화
+        reservationsCache.data = null;
+        
         res.json(savedReservation);
     } catch (error) {
         console.error('Error creating reservation:', error);
@@ -423,6 +451,9 @@ app.delete('/reservations/:id', isAuthenticated, async (req, res) => {
             const result = await Reservation.findByIdAndDelete(objectId);
             console.log('삭제 결과:', result ? '성공' : '실패');
             
+            // 캐시 무효화
+            reservationsCache.data = null;
+            
             res.json({ 
                 success: true,
                 message: '예약이 삭제되었습니다.'
@@ -448,5 +479,5 @@ connectToDatabase().catch(console.error);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    console.log(`서버가 포트 ${PORT}에서 실행 중입니다.`);
 }); 

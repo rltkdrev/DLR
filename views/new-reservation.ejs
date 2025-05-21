@@ -17,6 +17,7 @@
             text-align: center;
             line-height: 100px;
             cursor: pointer;
+            transition: background-color 0.2s;
         }
         .period-box.available {
             background-color: #90EE90; /* light green */
@@ -27,6 +28,28 @@
         }
         .period-box.selected {
             background-color: #32CD32; /* green */
+        }
+        .loading {
+            display: inline-block;
+            width: 15px;
+            height: 15px;
+            border: 2px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 2px solid #3498db;
+            animation: spin 1s linear infinite;
+            margin-right: 5px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        @media (max-width: 768px) {
+            .period-box {
+                width: 80px;
+                height: 80px;
+                line-height: 80px;
+                font-size: 0.9em;
+            }
         }
     </style>
 </head>
@@ -45,6 +68,9 @@
         <a href="/calendar" class="btn btn-secondary mb-3">캘린더로 돌아가기</a>
         <h2>예약하기</h2>
         <div class="alert alert-info">선택된 날짜: <span id="displayDate"><%= selectedDate %></span></div>
+        <div id="loadingIndicator" class="alert alert-secondary" style="display: none;">
+            <span class="loading"></span> 예약 정보를 불러오는 중...
+        </div>
         <form id="reservationForm">
             <input type="hidden" id="selectedDate" name="date" value="<%= selectedDate %>">
             <div class="mb-3">
@@ -91,58 +117,87 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             let allEvents = [];
+            let eventsCache = {};
             
             // 날짜 표시
             const selectedDate = '<%= selectedDate %>';
             document.getElementById('selectedDate').value = selectedDate;
             document.getElementById('displayDate').textContent = selectedDate;
+            
+            const loadingIndicator = document.getElementById('loadingIndicator');
 
             function updatePeriodBoxes(dateStr) {
+                // 캐시에 있는 경우 캐시 사용
+                if (eventsCache[dateStr]) {
+                    renderPeriods(eventsCache[dateStr]);
+                    return;
+                }
+                
+                loadingIndicator.style.display = 'block';
+                
                 fetch('/reservations')
                     .then(res => res.json())
                     .then(events => {
-                        console.log('Fetched events:', events);
+                        loadingIndicator.style.display = 'none';
+                        
+                        // 모든 이벤트 캐싱
                         allEvents = events;
                         
-                        // Filter events based on selected lab
-                        const selectedLab = document.getElementById('labSelect').value;
-                        const filteredEvents = events.filter(ev => 
-                            new Date(ev.start).toISOString().slice(0,10) === dateStr && 
-                            ev.extendedProps.lab === selectedLab
-                        );
-                        
-                        const reservedPeriods = filteredEvents.map(ev => parseInt(ev.extendedProps.period));
-                        console.log('Reserved periods for lab ' + selectedLab + ':', reservedPeriods);
-                        
-                        const periodBoxes = document.querySelectorAll('.period-box');
-                        periodBoxes.forEach(box => {
-                            const period = parseInt(box.dataset.period);
-                            if (reservedPeriods.includes(period)) {
-                                box.classList.remove('available');
-                                box.classList.remove('selected');
-                                box.classList.add('unavailable');
-                            } else {
-                                box.classList.remove('unavailable');
-                                box.classList.add('available');
+                        // 날짜별로 이벤트 캐싱
+                        events.forEach(ev => {
+                            const date = new Date(ev.start).toISOString().slice(0,10);
+                            if (!eventsCache[date]) {
+                                eventsCache[date] = [];
                             }
+                            eventsCache[date].push(ev);
                         });
+                        
+                        renderPeriods(eventsCache[dateStr] || []);
+                    })
+                    .catch(error => {
+                        loadingIndicator.style.display = 'none';
+                        console.error('Error fetching events:', error);
+                        alert('예약 정보를 불러오는데 실패했습니다. 페이지를 새로고침 해주세요.');
                     });
             }
-
-            // Initial update of period boxes
-            updatePeriodBoxes(document.getElementById('selectedDate').value);
             
-            // Update period boxes when lab selection changes
+            function renderPeriods(events) {
+                // 과학실 기준으로 필터링
+                const selectedLab = document.getElementById('labSelect').value;
+                const filteredEvents = events.filter(ev => ev.extendedProps.lab === selectedLab);
+                
+                const reservedPeriods = filteredEvents.map(ev => parseInt(ev.extendedProps.period));
+                
+                const periodBoxes = document.querySelectorAll('.period-box');
+                periodBoxes.forEach(box => {
+                    const period = parseInt(box.dataset.period);
+                    if (reservedPeriods.includes(period)) {
+                        box.classList.remove('available');
+                        box.classList.remove('selected');
+                        box.classList.add('unavailable');
+                    } else {
+                        box.classList.remove('unavailable');
+                        box.classList.add('available');
+                    }
+                });
+            }
+
+            // 초기 교시 상태 업데이트
+            updatePeriodBoxes(selectedDate);
+            
+            // 과학실 변경 시 교시 상태 업데이트
             document.getElementById('labSelect').addEventListener('change', function() {
                 document.querySelectorAll('.period-box').forEach(b => b.classList.remove('selected'));
                 document.getElementById('selectedPeriod').value = '';
                 updatePeriodBoxes(document.getElementById('selectedDate').value);
             });
 
-            document.querySelectorAll('.period-box').forEach(box => {
+            // 교시 선택 이벤트
+            const periodBoxes = document.querySelectorAll('.period-box');
+            periodBoxes.forEach(box => {
                 box.addEventListener('click', function() {
                     if (this.classList.contains('available')) {
-                        document.querySelectorAll('.period-box').forEach(b => b.classList.remove('selected'));
+                        periodBoxes.forEach(b => b.classList.remove('selected'));
                         this.classList.add('selected');
                         document.getElementById('selectedPeriod').value = this.dataset.period;
                     } else {
@@ -151,14 +206,10 @@
                 });
             });
 
-            document.getElementById('reservationForm').addEventListener('submit', async function(e) {
+            // 폼 제출 이벤트
+            const reservationForm = document.getElementById('reservationForm');
+            reservationForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
-                
-                // 로딩 표시 추가
-                const submitButton = this.querySelector('button[type="submit"]');
-                const originalText = submitButton.textContent;
-                submitButton.disabled = true;
-                submitButton.textContent = '예약 중...';
                 
                 // 교시 선택 확인
                 const selectedPeriod = document.getElementById('selectedPeriod').value;
@@ -167,6 +218,13 @@
                     return;
                 }
                 
+                // 로딩 표시 추가
+                const submitButton = this.querySelector('button[type="submit"]');
+                const originalText = submitButton.textContent;
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<span class="loading"></span> 예약 중...';
+                
+                // 폼 데이터 수집 및 전송
                 const formData = new FormData(this);
                 const data = Object.fromEntries(formData.entries());
                 
@@ -185,7 +243,6 @@
                     } else {
                         const errorData = await response.json();
                         alert(errorData.error || '예약에 실패했습니다.');
-                        console.error('예약 오류 세부정보:', errorData.details || '세부정보 없음');
                     }
                 } catch (error) {
                     console.error('Error:', error);
