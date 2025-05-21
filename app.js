@@ -275,7 +275,7 @@ app.get('/reservations', isAuthenticated, async (req, res) => {
             title: `[${reservation.role === 'teacher' ? '교사' : '학생'}] ${reservation.name} (${reservation.department}) [과학실 ${reservation.lab || '1'}]`,
             start: reservation.dateString || reservation.date,
             extendedProps: {
-                description: `직업: ${reservation.role === 'teacher' ? '교사' : '학생'}\n이름: ${reservation.name}\n소속: ${reservation.department}\n교시: ${reservation.period}교시\n과학실: ${reservation.lab || '1'}`,
+                description: `구분: ${reservation.role === 'teacher' ? '교사' : '학생'}\n이름: ${reservation.name}\n반: ${reservation.department}\n교시: ${reservation.period}교시\n과학실: ${reservation.lab || '1'}`,
                 period: reservation.period,
                 userId: reservation.userId,
                 lab: reservation.lab || '1'
