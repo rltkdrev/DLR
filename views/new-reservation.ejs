@@ -96,7 +96,7 @@
                 </select>
             </div>
             <div class="mb-3">
-                <label class="form-label">교시</label>
+                <label class="form-label">교시 (여러 교시 선택 가능)</label>
                 <div id="periodBoxes">
                     <div class="period-box available" data-period="1">1교시</div>
                     <div class="period-box available" data-period="2">2교시</div>
@@ -107,7 +107,8 @@
                     <div class="period-box available" data-period="7">7교시</div>
                     <div class="period-box available" data-period="8">방과후</div>
                 </div>
-                <input type="hidden" name="period" id="selectedPeriod" required>
+                <input type="hidden" name="periods" id="selectedPeriods" required>
+                <div class="mt-2" id="selectedPeriodsDisplay" class="text-muted"></div>
             </div>
             <button type="submit" class="btn btn-primary">예약하기</button>
         </form>
@@ -118,6 +119,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             let allEvents = [];
             let eventsCache = {};
+            let selectedPeriodsList = [];
             
             // 날짜 표시
             const selectedDate = '<%= selectedDate %>';
@@ -125,6 +127,23 @@
             document.getElementById('displayDate').textContent = selectedDate;
             
             const loadingIndicator = document.getElementById('loadingIndicator');
+            const selectedPeriodsDisplay = document.getElementById('selectedPeriodsDisplay');
+
+            // 선택된 교시 표시 함수
+            function updateSelectedPeriodsDisplay() {
+                if (selectedPeriodsList.length === 0) {
+                    selectedPeriodsDisplay.innerHTML = '<div class="text-muted">교시를 선택해주세요</div>';
+                } else {
+                    const sortedPeriods = [...selectedPeriodsList].sort((a, b) => a - b);
+                    const periodsText = sortedPeriods.map(p => 
+                        p === 8 ? '방과후' : `${p}교시`
+                    ).join(', ');
+                    selectedPeriodsDisplay.innerHTML = `<div>선택된 교시: ${periodsText}</div>`;
+                }
+                
+                // 선택된 교시들을 hidden input에 저장
+                document.getElementById('selectedPeriods').value = JSON.stringify(selectedPeriodsList);
+            }
 
             function updatePeriodBoxes(dateStr) {
                 // 캐시에 있는 경우 캐시 사용
@@ -175,11 +194,24 @@
                         box.classList.remove('available');
                         box.classList.remove('selected');
                         box.classList.add('unavailable');
+                        
+                        // 예약 불가능한 교시는 선택 목록에서 제거
+                        selectedPeriodsList = selectedPeriodsList.filter(p => p !== period);
                     } else {
                         box.classList.remove('unavailable');
                         box.classList.add('available');
+                        
+                        // 이미 선택된 교시는 선택 상태 유지
+                        if (selectedPeriodsList.includes(period)) {
+                            box.classList.add('selected');
+                        } else {
+                            box.classList.remove('selected');
+                        }
                     }
                 });
+                
+                // 선택된 교시 표시 업데이트
+                updateSelectedPeriodsDisplay();
             }
 
             // 초기 교시 상태 업데이트
@@ -187,8 +219,10 @@
             
             // 과학실 변경 시 교시 상태 업데이트
             document.getElementById('labSelect').addEventListener('change', function() {
+                // 과학실 변경 시 선택된 교시 초기화
+                selectedPeriodsList = [];
                 document.querySelectorAll('.period-box').forEach(b => b.classList.remove('selected'));
-                document.getElementById('selectedPeriod').value = '';
+                updateSelectedPeriodsDisplay();
                 updatePeriodBoxes(document.getElementById('selectedDate').value);
             });
 
@@ -197,9 +231,19 @@
             periodBoxes.forEach(box => {
                 box.addEventListener('click', function() {
                     if (this.classList.contains('available')) {
-                        periodBoxes.forEach(b => b.classList.remove('selected'));
-                        this.classList.add('selected');
-                        document.getElementById('selectedPeriod').value = this.dataset.period;
+                        const period = parseInt(this.dataset.period);
+                        
+                        // 이미 선택된 교시면 선택 취소, 아니면 선택에 추가
+                        if (selectedPeriodsList.includes(period)) {
+                            this.classList.remove('selected');
+                            selectedPeriodsList = selectedPeriodsList.filter(p => p !== period);
+                        } else {
+                            this.classList.add('selected');
+                            selectedPeriodsList.push(period);
+                        }
+                        
+                        // 선택된 교시 표시 업데이트
+                        updateSelectedPeriodsDisplay();
                     } else {
                         alert('이미 예약된 시간입니다.');
                     }
@@ -212,9 +256,8 @@
                 e.preventDefault();
                 
                 // 교시 선택 확인
-                const selectedPeriod = document.getElementById('selectedPeriod').value;
-                if (!selectedPeriod) {
-                    alert('교시를 선택해주세요.');
+                if (selectedPeriodsList.length === 0) {
+                    alert('최소 1개 이상의 교시를 선택해주세요.');
                     return;
                 }
                 
@@ -228,8 +271,11 @@
                 const formData = new FormData(this);
                 const data = Object.fromEntries(formData.entries());
                 
+                // 선택된 교시 정보 추가
+                data.periods = selectedPeriodsList;
+                
                 try {
-                    const response = await fetch('/reservations', {
+                    const response = await fetch('/reservations/multi', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'

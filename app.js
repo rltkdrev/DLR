@@ -403,6 +403,103 @@ app.post('/reservations', isAuthenticated, async (req, res) => {
     }
 });
 
+// 여러 교시 예약 처리 라우트
+app.post('/reservations/multi', isAuthenticated, async (req, res) => {
+    try {
+        console.log('여러 교시 예약 생성 요청:', req.body);
+        await connectToDatabase();
+        
+        const { role, name, department, periods, date, lab } = req.body;
+        
+        // periods가 문자열로 전달된 경우 JSON parse
+        let periodArray = periods;
+        if (typeof periods === 'string') {
+            try {
+                periodArray = JSON.parse(periods);
+            } catch (e) {
+                return res.status(400).json({ error: '유효하지 않은 교시 데이터입니다.' });
+            }
+        }
+        
+        // 교시 배열 확인
+        if (!Array.isArray(periodArray) || periodArray.length === 0) {
+            return res.status(400).json({ error: '최소 하나 이상의 교시를 선택해야 합니다.' });
+        }
+        
+        // 날짜 파싱 및 시간대 문제 해결
+        const dateString = date;
+        const dateParts = dateString.split('-');
+        const year = parseInt(dateParts[0]);
+        const month = parseInt(dateParts[1]) - 1;
+        const day = parseInt(dateParts[2]);
+        
+        const reservationDate = new Date(year, month, day, 12, 0, 0);
+        
+        if (isNaN(reservationDate.getTime())) {
+            return res.status(400).json({ error: '유효하지 않은 날짜입니다.' });
+        }
+
+        // 중복 예약 체크
+        const startOfDay = new Date(year, month, day, 0, 0, 0);
+        const endOfDay = new Date(year, month, day, 23, 59, 59);
+        
+        // 모든 선택된 교시에 대해 중복 체크
+        const existingReservations = await Reservation.find({
+            date: {
+                $gte: startOfDay,
+                $lt: endOfDay
+            },
+            period: { $in: periodArray },
+            lab: lab
+        });
+
+        // 이미 예약된 교시들 확인
+        if (existingReservations.length > 0) {
+            const reservedPeriods = existingReservations.map(r => r.period);
+            const reservedPeriodsStr = reservedPeriods.map(p => p === 8 ? '방과후' : `${p}교시`).join(', ');
+            return res.status(400).json({ 
+                error: `다음 교시는 이미 예약되어 있습니다: ${reservedPeriodsStr}` 
+            });
+        }
+
+        // 각 교시별로 예약 생성
+        const savedReservations = [];
+        for (const period of periodArray) {
+            const newReservation = new Reservation({
+                date: reservationDate,
+                dateString: dateString,
+                period: parseInt(period),
+                lab: lab || '1',
+                role,
+                name,
+                department,
+                userId: req.user.id,
+                userEmail: req.user.emails && req.user.emails[0] ? req.user.emails[0].value : 'unknown@donghwa.hs.kr'
+            });
+
+            console.log(`교시 ${period} 예약 저장 중...`);
+            const savedReservation = await newReservation.save();
+            savedReservations.push(savedReservation);
+        }
+        
+        // 캐시 무효화
+        reservationsCache.data = null;
+        
+        console.log(`총 ${savedReservations.length}개의 예약이 성공적으로 저장되었습니다.`);
+        res.json({ 
+            success: true,
+            count: savedReservations.length,
+            reservations: savedReservations.map(r => r._id)
+        });
+    } catch (error) {
+        console.error('Error creating multiple reservations:', error);
+        res.status(500).json({ 
+            error: '예약 생성 중 오류가 발생했습니다.',
+            details: error.message
+        });
+    }
+});
+
 app.delete('/reservations/:id', isAuthenticated, async (req, res) => {
     try {
         const id = req.params.id;
