@@ -278,7 +278,7 @@ app.get('/reservations', isAuthenticated, async (req, res) => {
         timeMin.setHours(0, 0, 0, 0);
         
         const timeMax = new Date();
-        timeMax.setMonth(timeMax.getMonth() + 1);
+        timeMax.setMonth(timeMax.getMonth() + 12);
         timeMax.setHours(23, 59, 59, 999);
         
         const reservations = await Reservation.find({
